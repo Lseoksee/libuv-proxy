@@ -13,6 +13,8 @@
             "args": [],
             "cwd": "${workspaceFolder}",
             "MIMode": "gdb",
+            // 디버깅시에 쓸때없이 디버그 콘솔로 이동되는 문제 해결용
+            "internalConsoleOptions": "neverOpen",
             "setupCommands": [
                 {
                     "description": "포멧팅",
