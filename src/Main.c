@@ -1,6 +1,12 @@
-#include <picohttpparser.h>
+#include <ParseHttp.h>
 #include <stdio.h>
+#include <string.h>
 #include <uv.h>
+
+typedef struct {
+    int proxyMode;
+    int HttpMode;
+} ReqestMode;
 
 // 연결 요청 대기 큐 최대길이 (리눅스 기본값 128개)
 #define DEFAULT_BACKLOG 128
@@ -18,26 +24,57 @@ void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     buf->len = suggested_size;
 }
 
+void on_write(uv_write_t *req, int status) {
+    if (status < 0) {
+        fprintf(stderr, "Write error: %s\n", uv_strerror(status));
+    }
+    printf("Write Data\n");
+    free(req->data);
+    free(req);
+}
+
 /** 클라이언트 데이터 읽기 */
 void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
-    const char *method = NULL, *path = NULL;
-    int pret = 0, minor_version = 0;
-    struct phr_header *headers = NULL;
-    size_t buflen = 0, prevbuflen = 0, method_len = 0, path_len = 0, num_headers = 0;
-    ssize_t rret = 0;
-
     if (nread > 0) {
+        HttpRequest *req = (HttpRequest *)malloc(sizeof(HttpRequest));
+        //TODO: buffer가 callback 타면서 덮어씌워지는 문제가 있음
         uv_buf_t buffer = uv_buf_init(buf->base, nread);
-        int state = phr_parse_request(buffer.base, (size_t)buffer.len, &method, &method_len, &path, &path_len, &minor_version, headers, &num_headers, 0);
+        fprintf(stdout, "Read Data: %s\n", buffer.base);
 
-        if (state == -1) {
-            fprintf(stderr, "요청 파싱 실패\n");
-            uv_close((uv_handle_t *)stream, close_cb);
-            return;
+        ReqestMode mode = {.HttpMode = 1, .proxyMode = 0};
+        char *host;
+
+        parse_http_request(buffer.base, buf->len, req);
+        for (int i = 0; i < req->header_count; i++) {
+            // 호스트 구하기
+            if (strcmp(req->headers[i].key, "Host") == 0) {
+                host = req->headers[i].value;
+            }
+
+            if (strcmp(req->headers[i].key, "Proxy-Connection") == 0) {
+                mode.HttpMode = 0;
+                mode.proxyMode = 1;
+            }
         }
-        printf("%s", path);
-    }
-    if (nread < 0) {
+
+        // 프록시 처음 연결
+        if (mode.proxyMode) {
+            const char *response = "HTTP/1.1 200 Connection Established\r\n\r\n";
+            uv_buf_t resBuffer = uv_buf_init(strdup(response), strlen(response));
+
+            uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
+            write_req->data = resBuffer.base;
+            uv_write(write_req, stream, &resBuffer, 1, on_write);
+            // URL *url = (URL *)malloc(sizeof(URL));
+            // parseURL(host, url);
+            // printf("Host: %s, Port: %d\n", url->url, url->port);
+        }
+        // 프록시 Respose 이후 클라이언트에 http 연결
+        else if (mode.HttpMode) {
+        }
+
+        free_headers(req);
+    } else {
         if (nread != UV_EOF) fprintf(stderr, "Read error %s\n", uv_err_name(nread));
         uv_close((uv_handle_t *)stream, close_cb);
     }

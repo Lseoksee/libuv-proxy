@@ -17,5 +17,5 @@ target_link_libraries(K-WarningBypass PRIVATE libuv::uv)
 
 # picohttpparser. c & .h를 라이브러리로 추가
 target_include_directories(K-WarningBypass PRIVATE include)
-add_library(picohttpparser STATIC lib/picohttpparser.c)
-target_link_libraries(K-WarningBypass PRIVATE picohttpparser)
+add_library(ParseHttp STATIC lib/ParseHttp.c)
+target_link_libraries(K-WarningBypass PRIVATE ParseHttp)
