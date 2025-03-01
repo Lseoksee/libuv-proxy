@@ -37,5 +37,5 @@ void parseURL(char *hostURL, URL *res) {
     // 그럼 hostURL은 : 이전, colon+1은 : 이후
     *colon = '\0';
     res->url = hostURL;
-    res->port = atoi(colon + 1);
+    res->port = colon + 1;
 }

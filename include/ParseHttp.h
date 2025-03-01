@@ -20,7 +20,7 @@ typedef struct {
 
 typedef struct {
     char *url;
-    int port;
+    char *port;
 } URL;
 
 void free_headers(HttpRequest *req);

@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "stdio.h": "c",
-        "parsehttp.h": "c"
+        "parsehttp.h": "c",
+        "main.h": "c",
+        "uv.h": "c"
     }
 }

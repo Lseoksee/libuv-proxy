@@ -3,6 +3,8 @@
 #include <string.h>
 #include <uv.h>
 
+#include "PorxyClient.c"
+#include "Utills.c"
 typedef struct {
     int proxyMode;
     int HttpMode;
@@ -28,7 +30,6 @@ void on_write(uv_write_t *req, int status) {
     if (status < 0) {
         fprintf(stderr, "Write error: %s\n", uv_strerror(status));
     }
-    printf("Write Data\n");
     free(req->data);
     free(req);
 }
@@ -37,18 +38,16 @@ void on_write(uv_write_t *req, int status) {
 void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     if (nread > 0) {
         HttpRequest *req = (HttpRequest *)malloc(sizeof(HttpRequest));
-        //TODO: buffer가 callback 타면서 덮어씌워지는 문제가 있음
-        uv_buf_t buffer = uv_buf_init(buf->base, nread);
-        fprintf(stdout, "Read Data: %s\n", buffer.base);
 
         ReqestMode mode = {.HttpMode = 1, .proxyMode = 0};
-        char *host;
+        char host[1024];
+        URL url;
 
-        parse_http_request(buffer.base, buf->len, req);
+        parse_http_request(buf->base, buf->len, req);
         for (int i = 0; i < req->header_count; i++) {
             // 호스트 구하기
             if (strcmp(req->headers[i].key, "Host") == 0) {
-                host = req->headers[i].value;
+                strcpy(host, req->headers[i].value);
             }
 
             if (strcmp(req->headers[i].key, "Proxy-Connection") == 0) {
@@ -59,18 +58,19 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
         // 프록시 처음 연결
         if (mode.proxyMode) {
-            const char *response = "HTTP/1.1 200 Connection Established\r\n\r\n";
-            uv_buf_t resBuffer = uv_buf_init(strdup(response), strlen(response));
+            if (host != NULL) {
+                printf("host: %s\n", host);
+                parseURL(host, &url);
+            }
 
-            uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
-            write_req->data = resBuffer.base;
-            uv_write(write_req, stream, &resBuffer, 1, on_write);
-            // URL *url = (URL *)malloc(sizeof(URL));
-            // parseURL(host, url);
-            // printf("Host: %s, Port: %d\n", url->url, url->port);
+            char *host = getDnsToAddr(loop, (&url)->url, (&url)->port);
+            if (host != NULL) {
+                ConnectTargetServer(host, atoi((&url)->port), stream);
+            }
         }
         // 프록시 Respose 이후 클라이언트에 http 연결
         else if (mode.HttpMode) {
+            sendTargetServer(stream, buf, nread);
         }
 
         free_headers(req);
@@ -84,7 +84,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
 void on_new_connection(uv_stream_t *server, int status) {
     if (status < 0) {
-        fprintf(stderr, "연결오류 %s\n", uv_strerror(status));
+        fprintf(stderr, "on_new_connection, 연결오류 %s\n", uv_strerror(status));
         return;
     }
 
@@ -102,6 +102,7 @@ int main(int argc, char const *argv[]) {
 
     uv_tcp_t server;
     uv_tcp_init(loop, &server);
+    init_PorxyClient(loop);
 
     struct sockaddr_in addr;
     uv_ip4_addr("0.0.0.0", DEFAULT_PORT, &addr);
