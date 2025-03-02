@@ -67,6 +67,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             if (host != NULL) {
                 ConnectTargetServer(host, atoi((&url)->port), stream);
             }
+            free(buf->base);
         }
         // 프록시 Respose 이후 클라이언트에 http 연결
         else if (mode.HttpMode) {
@@ -78,8 +79,6 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         if (nread != UV_EOF) fprintf(stderr, "Read error %s\n", uv_err_name(nread));
         uv_close((uv_handle_t *)stream, close_cb);
     }
-
-    free(buf->base);
 }
 
 void on_new_connection(uv_stream_t *server, int status) {
