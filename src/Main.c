@@ -12,13 +12,16 @@ typedef struct {
 
 // 연결 요청 대기 큐 최대길이 (리눅스 기본값 128개)
 #define DEFAULT_BACKLOG 128
-#define DEFAULT_PORT 80
+#define DEFAULT_PORT 1503
 
 // 이거 서버에 구동 구조체
 uv_loop_t *loop;
 
 /** 연결 종료된 클라이언트는 free */
-void close_cb(uv_handle_t *handle) { free(handle); }
+void close_cb(uv_handle_t *handle) {
+    free(handle);
+    handle = NULL;
+}
 
 /** 버퍼 할당 함수 */
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
@@ -28,7 +31,7 @@ void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 
 void on_write(uv_write_t *req, int status) {
     if (status < 0) {
-        fprintf(stderr, "Write error: %s\n", uv_strerror(status));
+        fprintf(stderr, "on_write_porxy, Write error: %s\n", uv_strerror(status));
     }
     free(req->data);
     free(req);
@@ -60,12 +63,13 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         if (mode.proxyMode) {
             if (host != NULL) {
                 printf("host: %s\n", host);
+                // TODO: 단순 IP로 연결할 경우에도 처리해야함
                 parseURL(host, &url);
             }
 
-            char *host = getDnsToAddr(loop, (&url)->url, (&url)->port);
-            if (host != NULL) {
-                ConnectTargetServer(host, atoi((&url)->port), stream);
+            char *getHost = getDnsToAddr(loop, (&url)->url, (&url)->port);
+            if (getHost != NULL) {
+                ConnectTargetServer(getHost, atoi((&url)->port), stream);
             }
             free(buf->base);
         }
@@ -76,7 +80,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
         free_headers(req);
     } else {
-        if (nread != UV_EOF) fprintf(stderr, "Read error %s\n", uv_err_name(nread));
+        if (nread != UV_EOF) fprintf(stderr, "read_data, Read error %s\n", uv_err_name(nread));
         uv_close((uv_handle_t *)stream, close_cb);
     }
 }

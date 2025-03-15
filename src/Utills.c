@@ -4,7 +4,7 @@ char *getDnsToAddr(uv_loop_t *loop, const char *host, const char *port) {
     uv_getaddrinfo_t *res;
 
     struct addrinfo hints;
-    hints.ai_family = PF_INET;
+    hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
     hints.ai_flags = 0;
