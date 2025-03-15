@@ -1,4 +1,4 @@
-#include <uv.h>
+#include "Utills.h"
 
 char *getDnsToAddr(uv_loop_t *loop, const char *host, const char *port) {
     uv_getaddrinfo_t *res;
@@ -27,4 +27,10 @@ char *getDnsToAddr(uv_loop_t *loop, const char *host, const char *port) {
     uv_freeaddrinfo(res->addrinfo);
 
     return resAddr;
+}
+
+int is_ip(const char *input) {
+    struct in_addr ipv4;
+    struct in6_addr ipv6;
+    return inet_pton(AF_INET, input, &ipv4) || inet_pton(AF_INET6, input, &ipv6);
 }

@@ -6,8 +6,10 @@ project(K-WarningBypass VERSION 0.1.0 LANGUAGES C)
 set(CMAKE_C_COMPILER "gcc")
 set(CMAKE_C_STANDARD 23)
 
+
 # 실행파일 지정
-add_executable(K-WarningBypass src/Main.c)
+file(GLOB SOURCES "src/*.c")
+add_executable(K-WarningBypass ${SOURCES})
 add_subdirectory(src)
 
 # vcpkg 패키지 경로 설정

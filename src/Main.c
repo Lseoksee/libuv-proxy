@@ -1,47 +1,17 @@
-#include <ParseHttp.h>
-#include <stdio.h>
-#include <string.h>
-#include <uv.h>
+#include "Global.h"
+#include "ParseHttp.h"
+#include "PorxyClient.h"
+#include "Utills.h"
 
-#include "PorxyClient.c"
-#include "Utills.c"
-typedef struct {
-    int proxyMode;
-    int HttpMode;
-} ReqestMode;
-
-// 연결 요청 대기 큐 최대길이 (리눅스 기본값 128개)
-#define DEFAULT_BACKLOG 128
-#define DEFAULT_PORT 1503
-
-// 이거 서버에 구동 구조체
+/** 서버 구동체 */
 uv_loop_t *loop;
-
-/** 연결 종료된 클라이언트는 free */
-void close_cb(uv_handle_t *handle) {
-    free(handle);
-    handle = NULL;
-}
-
-/** 버퍼 할당 함수 */
-void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-    buf->base = (char *)malloc(suggested_size);
-    buf->len = suggested_size;
-}
-
-void on_write(uv_write_t *req, int status) {
-    if (status < 0) {
-        fprintf(stderr, "on_write_porxy, Write error: %s\n", uv_strerror(status));
-    }
-    free(req->data);
-    free(req);
-}
 
 /** 클라이언트 데이터 읽기 */
 void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     if (nread > 0) {
         HttpRequest req;
-        ReqestMode mode = {.HttpMode = 1, .proxyMode = 0};
+        // 프록시 처음 연결 여부용
+        int proxyMode = 0;
         char host[1024];
         URL url;
 
@@ -53,13 +23,12 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             }
 
             if (strcmp(req.headers[i].key, "Proxy-Connection") == 0) {
-                mode.HttpMode = 0;
-                mode.proxyMode = 1;
+                proxyMode = 1;
             }
         }
 
         // 프록시 처음 연결
-        if (mode.proxyMode) {
+        if (proxyMode) {
             if (host != NULL) {
                 printf("host: %s\n", host);
                 // TODO: 단순 IP로 연결할 경우에도 처리해야함
@@ -76,7 +45,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             free(buf->base);
         }
         // 프록시 Respose 이후 클라이언트에 http 연결
-        else if (mode.HttpMode) {
+        else {
             sendTargetServer(stream, buf, nread);
         }
 
