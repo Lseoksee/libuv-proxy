@@ -6,12 +6,12 @@
             "displayName": "GCC 14.2.0 x86_64-w64-mingw32",
             "generator": "MinGW Makefiles",
             "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install/${presetName}",
                 "CMAKE_C_COMPILER": "C:/Program Files/mingw64/bin/gcc.exe",
-                "CMAKE_CXX_COMPILER": "C:/Program Files/mingw64/bin/g++.exe",
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_TOOLCHAIN_FILE": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake"
+                "VCPKG_TARGET_TRIPLET": "x64-mingw-static"
             }
         }
     ]
