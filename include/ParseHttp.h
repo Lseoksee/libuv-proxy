@@ -26,3 +26,6 @@ typedef struct {
 void free_headers(HttpRequest *req);
 void parse_http_request(const char *raw_request, int len, HttpRequest *req);
 void parseURL(char *hostURL, URL *res);
+
+/** ip 주소인지 판단 (v4, v6 둘다 가능) */
+int is_ip(const char *input);

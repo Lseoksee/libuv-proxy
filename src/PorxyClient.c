@@ -108,6 +108,8 @@ void on_connect_porxy(uv_connect_t *req, int status) {
     uv_buf_t resBuffer = uv_buf_init(strdup(established), strlen(established));
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
     write_req->data = resBuffer.base;
+
+    //INFO: 해당 과정에서 간혈적 오류 발생
     uv_write(write_req, clients[index].proxyClient, &resBuffer, 1, on_write_porxy);
 }
 
@@ -154,4 +156,10 @@ void ConnectTargetServer(char *addr, int port, uv_stream_t *clientStream) {
 
     client->targetClient = connecter->handle;
     add_client(client);
+}
+
+int is_ip(const char *input) {
+    struct in_addr ipv4;
+    struct in6_addr ipv6;
+    return inet_pton(AF_INET, input, &ipv4) || inet_pton(AF_INET6, input, &ipv6);
 }
