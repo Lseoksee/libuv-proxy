@@ -10,7 +10,6 @@ typedef struct {
     uv_stream_t *targetClient;
     /** 프록시 서버에 접속하는 클라이언트 (즉 응답을 위한) */
     uv_stream_t *proxyClient;
-    uv_tcp_t *handle;
     char host[1024];
 } Client;
 

@@ -5,9 +5,7 @@ uv_loop_t *mainLoop = NULL;
 /** 타겟 서버 연결 완료시 보내는 패킷 */
 const char *established = "HTTP/1.1 200 Connection Established\r\n\r\n";
 
-void init_PorxyClient(uv_loop_t *loop) {
-    mainLoop = loop;
-}
+void init_PorxyClient(uv_loop_t *loop) { mainLoop = loop; }
 
 void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     Client *client = (Client *)stream->data;
@@ -15,7 +13,7 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         if (nread != UV_EOF) fprintf(stderr, "on_connect_porxy, 읽기 오류: %s\n", uv_err_name(nread));
         uv_close((uv_handle_t *)stream, close_cb);
 
-        uv_shutdown_t* shutdown_req = (uv_shutdown_t*) malloc(sizeof(uv_shutdown_t));
+        uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
         uv_shutdown(shutdown_req, client->proxyClient, on_shutdown);
         return;
     }
@@ -78,21 +76,21 @@ void sendTargetServer(uv_stream_t *clientStream, const uv_buf_t *buf, ssize_t nr
 
 void ConnectTargetServer(char *addr, int port, uv_stream_t *clientStream) {
     struct sockaddr_in dest;
+
     Client *client = (Client *)malloc(sizeof(Client));
-    client->handle = (uv_tcp_t *)malloc(sizeof(uv_tcp_t));
-
-    client->proxyClient = clientStream;
-    strcpy(client->host, addr);
-
+    uv_tcp_t *ClientHandle = (uv_tcp_t *)malloc(sizeof(uv_tcp_t));
     uv_connect_t *connecter = malloc(sizeof(uv_connect_t));
 
-    uv_tcp_init(mainLoop, client->handle);
-    uv_ip4_addr(addr, port, &dest);
-    uv_tcp_connect(connecter, client->handle, (const struct sockaddr *)&dest, on_connect_porxy);
+    strcpy(client->host, addr);
 
+    uv_tcp_init(mainLoop, ClientHandle);
+    uv_ip4_addr(addr, port, &dest);
+    uv_tcp_connect(connecter, ClientHandle, (const struct sockaddr *)&dest, on_connect_porxy);
+
+    client->proxyClient = clientStream;
     client->targetClient = connecter->handle;
 
-    //INFO: uv_stream_t의 data는 개발자가 직접 할당 할 수 있다. 이를 이용해서 생성한 client 구조체를 보관한다
+    // INFO: uv_stream_t의 data는 개발자가 직접 할당 할 수 있다. 이를 이용해서 생성한 client 구조체를 보관한다
     client->proxyClient->data = client;
     client->targetClient->data = client;
 }
