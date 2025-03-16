@@ -1,11 +1,6 @@
 {
     "files.associations": {
-        "string.h": "c",
-        "uv.h": "c",
-        "stdio.h": "c",
-        "porxyclient.h": "c",
-        "global.h": "c",
-        "parsehttp.h": "c",
-        "utills.h": "c"
+        "*.h": "c",
+        "*.c": "c",
     }
 }

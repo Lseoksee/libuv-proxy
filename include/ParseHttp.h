@@ -25,6 +25,12 @@ typedef struct {
     char *port;
 } URL;
 
-void free_headers(HttpRequest *req);
-void parse_http_request(const char *raw_request, int len, HttpRequest *req);
-void parseURL(char *hostURL, URL *res);
+HttpRequest parse_http_request(const char *raw_request, int len);
+
+int is_connect_request(const char *request);
+
+URL parseURL(const char *hostURL);
+
+void freeHeader(HttpRequest *req);
+
+void freeURL(URL *url);

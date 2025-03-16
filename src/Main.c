@@ -8,50 +8,49 @@ uv_loop_t *loop;
 
 /** 클라이언트 데이터 읽기 */
 void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
-    if (nread > 0) {
-        HttpRequest req;
-        // 프록시 처음 연결 여부용
-        int proxyMode = 0;
-        char host[1024];
-        URL url;
-
-        parse_http_request(buf->base, buf->len, &req);
-        for (int i = 0; i < req.header_count; i++) {
-            // 호스트 구하기
-            if (strcmp(req.headers[i].key, "Host") == 0) {
-                strcpy(host, req.headers[i].value);
-            }
-
-            if (strcmp(req.headers[i].key, "Proxy-Connection") == 0) {
-                proxyMode = 1;
-            }
-        }
-
-        // 프록시 처음 연결
-        if (proxyMode) {
-            if (host != NULL) {
-                printf("host: %s\n", host);
-                // TODO: 단순 IP로 연결할 경우에도 처리해야함
-                parseURL(host, &url);
-            }
-
-            char *getHost = (&url)->url;
-            if (!is_ip((&url)->url)) {
-                getHost = getDnsToAddr(loop, (&url)->url, (&url)->port);
-            }
-
-            ConnectTargetServer(getHost, atoi((&url)->port), stream);
-
-            free(buf->base);
-        }
-        // 프록시 Respose 이후 클라이언트에 http 연결
-        else {
-            sendTargetServer(stream, buf, nread);
-        }
-
-    } else {
+    if (nread <= 0) {
         if (nread != UV_EOF) fprintf(stderr, "read_data, Read error %s\n", uv_err_name(nread));
         uv_close((uv_handle_t *)stream, close_cb);
+        return;
+    }
+
+    // 프록시 처음 연결
+    if (is_connect_request(buf->base)) {
+        Header HostHeader;
+        char ipaddr[INET6_ADDRSTRLEN];
+
+        HttpRequest parseHeader = parse_http_request(buf->base, buf->len);
+        if (parseHeader.header_count == 0) {
+            printf("해더 파싱 실패\n");
+            return;
+        }
+
+        for (int i = 0; i < parseHeader.header_count; i++) {
+            // 호스트 구하기
+            if (strcmp(parseHeader.headers[i].key, "Host") == 0) {
+                HostHeader = parseHeader.headers[i];
+                break;
+            }
+        }
+
+        printf("Host: %s\n", HostHeader.value);
+        URL addr = parseURL(HostHeader.value);
+
+        if (!is_ip(addr.url)) {
+            getDnsToAddr(loop, addr.url, addr.port, ipaddr);
+        } else {
+            strcpy(ipaddr, addr.url);
+        }
+
+        ConnectTargetServer(ipaddr, atoi(addr.port), stream);
+
+        free(buf->base);
+        freeURL(&addr);
+        freeHeader(&parseHeader);
+    }
+    // 프록시 Respose 이후 클라이언트에 http 연결
+    else {
+        sendTargetServer(stream, buf, nread);
     }
 }
 

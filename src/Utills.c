@@ -1,7 +1,7 @@
 #include "Utills.h"
 
-char *getDnsToAddr(uv_loop_t *loop, const char *host, const char *port) {
-    uv_getaddrinfo_t *res;
+void getDnsToAddr(uv_loop_t *loop, const char *host, const char *port, char *res_buf) {
+    uv_getaddrinfo_t res;
 
     struct addrinfo hints;
     hints.ai_family = AF_INET;
@@ -9,24 +9,21 @@ char *getDnsToAddr(uv_loop_t *loop, const char *host, const char *port) {
     hints.ai_protocol = IPPROTO_TCP;
     hints.ai_flags = 0;
 
-    int status = uv_getaddrinfo(loop, res, NULL, host, port, &hints);
+    int status = uv_getaddrinfo(loop, &res, NULL, host, port, &hints);
     if (status != 0) {
-        return NULL;
+        return;
     }
 
     void *addr_ptr;
     char addr[INET_ADDRSTRLEN];
 
-    struct sockaddr_in *ipv4 = (struct sockaddr_in *)res->addrinfo->ai_addr;
+    struct sockaddr_in *ipv4 = (struct sockaddr_in *) res.addrinfo->ai_addr;
     addr_ptr = &(ipv4->sin_addr);
-    inet_ntop(res->addrinfo->ai_family, addr_ptr, addr, sizeof(addr));
+    inet_ntop(res.addrinfo->ai_family, addr_ptr, addr, sizeof(addr));
 
-    char *resAddr = (char *)malloc(strlen(addr) + 1);
-    strcpy_s(resAddr, INET_ADDRSTRLEN, addr);
+    strcpy_s(res_buf, INET_ADDRSTRLEN, addr);
 
-    uv_freeaddrinfo(res->addrinfo);
-
-    return resAddr;
+    uv_freeaddrinfo(res.addrinfo);
 }
 
 int is_ip(const char *input) {
