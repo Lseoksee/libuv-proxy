@@ -18,3 +18,7 @@ void on_write(uv_write_t *req, int status) {
     free(req->data);
     free(req);
 }
+
+void on_shutdown(uv_shutdown_t* req, int status) {
+    free(req);
+}

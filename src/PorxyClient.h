@@ -2,15 +2,6 @@
 
 #include "Global.h"
 
-typedef struct {
-    /** 프록시 서버가 대상 서버에 연결하기 위한 클라이언트 (즉 요청을 위한) */
-    uv_stream_t *targetClient;
-    /** 프록시 서버에 접속하는 클라이언트 (즉 응답을 위한) */
-    uv_stream_t *proxyClient;
-    uv_tcp_t *handle;
-    char host[1024];
-} Client;
-
 /** PorxyClient 초기화 */
 void init_PorxyClient(uv_loop_t *mainLoop);
 

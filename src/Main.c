@@ -11,6 +11,11 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     if (nread <= 0) {
         if (nread != UV_EOF) fprintf(stderr, "read_data, Read error %s\n", uv_err_name(nread));
         uv_close((uv_handle_t *)stream, close_cb);
+        if (stream->data != NULL) {
+            Client *client = (Client *)stream->data;
+            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
+            uv_shutdown(shutdown_req, client->targetClient, on_shutdown);
+        }
         return;
     }
 
@@ -61,6 +66,7 @@ void on_new_connection(uv_stream_t *server, int status) {
     }
 
     uv_tcp_t *client = (uv_tcp_t *)malloc(sizeof(uv_tcp_t));
+    client->data = NULL;
     uv_tcp_init(loop, client);
     if (uv_accept(server, (uv_stream_t *)client) == 0) {
         uv_read_start((uv_stream_t *)client, alloc_buffer, read_data);
