@@ -24,7 +24,3 @@ target_include_directories(K-WarningBypass PRIVATE include)
 # picohttpparser.c & .h를 라이브러리로 추가
 add_library(ParseHttp STATIC lib/ParseHttp.c)
 target_link_libraries(K-WarningBypass PRIVATE ParseHttp)
-
-# LinkedList.c & .h를 라이브러리로 추가
-add_library(LinkedList STATIC lib/LinkedList.c)
-target_link_libraries(K-WarningBypass PRIVATE LinkedList)

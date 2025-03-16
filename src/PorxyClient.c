@@ -1,22 +1,12 @@
 #include "PorxyClient.h"
 
 uv_loop_t *mainLoop = NULL;
-ClientList *clients = NULL;
 
 /** 타겟 서버 연결 완료시 보내는 패킷 */
 const char *established = "HTTP/1.1 200 Connection Established\r\n\r\n";
 
-int stack = 0;
-ClientList *add_client(ClientList *client) {
-    clients = (ClientList *)realloc(clients, sizeof(ClientList) * (stack + 1));
-    clients[stack] = *client;
-    stack++;
-    return clients;
-}
-
 void init_PorxyClient(uv_loop_t *loop) {
     mainLoop = loop;
-    clients = (ClientList *)malloc(sizeof(ClientList));
 }
 
 void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
@@ -26,28 +16,19 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         return;
     }
 
-    int index = -1;
-    for (int i = 0; i < stack; i++) {
-        if (clients[i].targetClient == stream) {
-            index = i;
-            break;
-        }
-    }
-    if (index == -1) {
-        fprintf(stderr, "read_data_porxy, 소켓을 찾을 수 없음\n");
-        return;
-    } else if (uv_is_closing((uv_handle_t *)clients[index].proxyClient)) {
+    Client *client = (Client *)stream->data;
+    if (uv_is_closing((uv_handle_t *)client->proxyClient)) {
         fprintf(stderr, "read_data_porxy, 소켓이 종료됨\n");
         return;
     }
 
-    printf("read_data_porxy, host: %s\n", clients[index].host);
+    printf("read_data_porxy, host: %s\n", client->host);
 
     // INFO:l uv_buf_init안하면 실제 보낸 데이터 범위를 제한 할 수 없기 때문에 쓰래기 값이 들어감
     uv_buf_t resBuffer = uv_buf_init(buf->base, nread);
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
     write_req->data = resBuffer.base;
-    uv_write(write_req, clients[index].proxyClient, &resBuffer, 1, on_write);
+    uv_write(write_req, client->proxyClient, &resBuffer, 1, on_write);
 }
 
 void on_connect_porxy(uv_connect_t *req, int status) {
@@ -56,22 +37,13 @@ void on_connect_porxy(uv_connect_t *req, int status) {
         return;
     }
 
-    int index = -1;
-    for (int i = 0; i < stack; i++) {
-        if (clients[i].targetClient == req->handle) {
-            index = i;
-            break;
-        }
-    }
-    if (index == -1) {
-        fprintf(stderr, "on_connect_porxy, 소켓을 찾을 수 없음\n");
-        return;
-    } else if (uv_is_closing((uv_handle_t *)clients[index].proxyClient)) {
+    Client *client = (Client *)req->handle->data;
+    if (uv_is_closing((uv_handle_t *)client->proxyClient)) {
         fprintf(stderr, "on_connect_porxy, 소켓이 종료됨\n");
         return;
     }
 
-    uv_read_start(clients[index].targetClient, alloc_buffer, read_data_porxy);
+    uv_read_start(client->targetClient, alloc_buffer, read_data_porxy);
 
     // 성공적으로 대상 서버에 연결을 하면 프록시 서버에 연결된 클라이언트에 Established 응답을 보냄
     // strdup을 쓰는 이유는 on_write_porxy에서 메모리를 free 시키는데 established는 스택 영역에 선언된 상수라서 free 시키면 오류가 발생함
@@ -80,26 +52,17 @@ void on_connect_porxy(uv_connect_t *req, int status) {
     write_req->data = resBuffer.base;
 
     // INFO: 해당 과정에서 간혈적 오류 발생
-    uv_write(write_req, clients[index].proxyClient, &resBuffer, 1, on_write);
+    uv_write(write_req, client->proxyClient, &resBuffer, 1, on_write);
 }
 
 void sendTargetServer(uv_stream_t *clientStream, const uv_buf_t *buf, ssize_t nread) {
-    int index = -1;
-    for (int i = 0; i < stack; i++) {
-        if (clients[i].proxyClient == clientStream) {
-            index = i;
-            break;
-        }
-    }
-    if (index == -1) {
-        fprintf(stderr, "sendTargetServer, 소켓을 찾을 수 없음\n");
-        return;
-    } else if (uv_is_closing((uv_handle_t *)clients[index].targetClient)) {
+    Client *client = (Client *)clientStream->data;
+    if (uv_is_closing((uv_handle_t *)client->targetClient)) {
         fprintf(stderr, "sendTargetServer, 소켓이 종료됨\n");
         return;
     }
 
-    printf("sendTargetServer, host: %s, addr: %p\n", clients[index].host, &clients[index].targetClient);
+    printf("sendTargetServer, host: %s, addr: %p\n", client->host, &client->targetClient);
 
     // INFO:l uv_buf_init안하면 실제 보낸 데이터 범위를 제한 할 수 없기 때문에 쓰래기 값이 들어감
     uv_buf_t resBuffer = uv_buf_init(buf->base, nread);
@@ -107,12 +70,12 @@ void sendTargetServer(uv_stream_t *clientStream, const uv_buf_t *buf, ssize_t nr
     // 프록시 서버에 연결된 클라이언트의 요청을 대상 서버에 전달
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
     write_req->data = resBuffer.base;
-    uv_write(write_req, clients[index].targetClient, &resBuffer, 1, on_write);
+    uv_write(write_req, client->targetClient, &resBuffer, 1, on_write);
 }
 
 void ConnectTargetServer(char *addr, int port, uv_stream_t *clientStream) {
     struct sockaddr_in dest;
-    ClientList *client = (ClientList *)malloc(sizeof(ClientList));
+    Client *client = (Client *)malloc(sizeof(Client));
     client->handle = (uv_tcp_t *)malloc(sizeof(uv_tcp_t));
 
     client->proxyClient = clientStream;
@@ -125,5 +88,8 @@ void ConnectTargetServer(char *addr, int port, uv_stream_t *clientStream) {
     uv_tcp_connect(connecter, client->handle, (const struct sockaddr *)&dest, on_connect_porxy);
 
     client->targetClient = connecter->handle;
-    add_client(client);
+
+    //INFO: uv_stream_t의 data는 개발자가 직접 할당 할 수 있다. 이를 이용해서 생성한 client 구조체를 보관한다
+    client->proxyClient->data = client;
+    client->targetClient->data = client;
 }

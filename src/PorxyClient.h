@@ -9,10 +9,7 @@ typedef struct {
     uv_stream_t *proxyClient;
     uv_tcp_t *handle;
     char host[1024];
-} ClientList;
-
-/** 프록시 클라이언트 측 타겟 서버 연결 요청 메모리 할당 */
-ClientList *add_client(ClientList *client);
+} Client;
 
 /** PorxyClient 초기화 */
 void init_PorxyClient(uv_loop_t *mainLoop);
