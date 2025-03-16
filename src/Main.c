@@ -11,10 +11,14 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     if (nread <= 0) {
         if (nread != UV_EOF) fprintf(stderr, "read_data, Read error %s\n", uv_err_name(nread));
         uv_close((uv_handle_t *)stream, close_cb);
+
         if (stream->data != NULL) {
             Client *client = (Client *)stream->data;
-            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-            uv_shutdown(shutdown_req, client->targetClient, on_shutdown);
+
+            if (client->targetClient != NULL) {
+                uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
+                uv_shutdown(shutdown_req, client->targetClient, on_shutdown);
+            }
         }
         return;
     }
@@ -75,7 +79,14 @@ void on_new_connection(uv_stream_t *server, int status) {
     }
 }
 
+void handle_segfault(int sig) {
+    printf("\nERROR: 잘못된 메모리 접근 (Segmentation fault)\n");
+    system("pause");    
+}
+
 int main(int argc, char const *argv[]) {
+    signal(SIGSEGV, handle_segfault);
+
     loop = uv_default_loop();
 
     uv_tcp_t server;

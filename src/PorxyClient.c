@@ -13,12 +13,14 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         if (nread != UV_EOF) fprintf(stderr, "on_connect_porxy, 읽기 오류: %s\n", uv_err_name(nread));
         uv_close((uv_handle_t *)stream, close_cb);
 
-        uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-        uv_shutdown(shutdown_req, client->proxyClient, on_shutdown);
+        if (client->proxyClient != NULL) {
+            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
+            uv_shutdown(shutdown_req, client->proxyClient, on_shutdown);
+        }
         return;
     }
 
-    if (uv_is_closing((uv_handle_t *)client->proxyClient)) {
+    if (client->proxyClient == NULL || uv_is_closing((uv_handle_t *)client->proxyClient)) {
         fprintf(stderr, "read_data_porxy, 소켓이 종료됨\n");
         return;
     }
@@ -39,7 +41,7 @@ void on_connect_porxy(uv_connect_t *req, int status) {
     }
 
     Client *client = (Client *)req->handle->data;
-    if (uv_is_closing((uv_handle_t *)client->proxyClient)) {
+    if (client->proxyClient == NULL || uv_is_closing((uv_handle_t *)client->proxyClient)) {
         fprintf(stderr, "on_connect_porxy, 소켓이 종료됨\n");
         return;
     }
@@ -58,7 +60,7 @@ void on_connect_porxy(uv_connect_t *req, int status) {
 
 void sendTargetServer(uv_stream_t *clientStream, const uv_buf_t *buf, ssize_t nread) {
     Client *client = (Client *)clientStream->data;
-    if (uv_is_closing((uv_handle_t *)client->targetClient)) {
+    if (client->proxyClient == NULL || uv_is_closing((uv_handle_t *)client->targetClient)) {
         fprintf(stderr, "sendTargetServer, 소켓이 종료됨\n");
         return;
     }
