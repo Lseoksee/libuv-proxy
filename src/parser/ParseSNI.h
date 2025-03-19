@@ -1,13 +1,14 @@
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "sha256.h"
+
+#define SNI_MAX_SIZE 256
 
 typedef struct resultSNI {
     char *result_buf;
-    char beforeSNI[1024];
-    char afterSNI[1024];
+    char beforeSNI[SNI_MAX_SIZE];
+    char afterSNI[SNI_MAX_SIZE];
 } resultSNI;
 
 /** 해당 패킷이 clientHello 인지 판단합니다  */

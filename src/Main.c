@@ -24,12 +24,21 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         return;
     }
 
-    // 프록시 처음 연결
-    if (is_connect_request(buf->base)) {
+    // 프록시 처음 연결인지 확인
+    int is_connect = is_connect_request(buf->base);
+    // 프록시 연결이 아닌 이상한 패킷 처리
+    if (!is_connect && stream->data == NULL) {
+        fprintf(stderr, "허용되지 않는 연결\n");
+        free(buf->base);
+        uv_close((uv_handle_t *)stream, close_cb);
+        return;
+    }
+
+    if (is_connect) {
         Header HostHeader;
         char ipaddr[INET6_ADDRSTRLEN];
-
         HttpRequest parseHeader = parse_http_request(buf->base, buf->len);
+
         if (parseHeader.header_count == 0) {
             printf("해더 파싱 실패\n");
             return;
@@ -42,6 +51,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
                 break;
             }
         }
+
         URL addr = parseURL(HostHeader.value);
 
         if (!is_ip(addr.url)) {
@@ -57,7 +67,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     }
     // 프록시 Respose 이후 클라이언트에 http 연결
     else {
-        if (is_clientHello(buf->base, nread)) {
+/*         if (is_clientHello(buf->base, nread)) {
             resultSNI encryptSNI = encrypt_sni_from_client_hello(buf->base, nread);
             printf("해싱 이전: %s\n", encryptSNI.beforeSNI);
             printf("해싱 이후: %s\n", encryptSNI.afterSNI);
@@ -65,7 +75,8 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             free_resultSNI(&encryptSNI);
         } else {
             sendTargetServer(stream, buf->base, nread);
-        }
+        } */
+       sendTargetServer(stream, buf->base, nread);
     }
 
     free(buf->base);
@@ -88,7 +99,7 @@ void on_new_connection(uv_stream_t *server, int status) {
 }
 
 void handle_segfault(int sig) {
-    printf("\nERROR: 잘못된 메모리 접근 (Segmentation fault)\n");
+    fprintf(stderr, "\nERROR: 잘못된 메모리 접근 (Segmentation fault)\n");
     system("pause");
 }
 

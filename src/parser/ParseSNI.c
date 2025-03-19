@@ -1,5 +1,7 @@
 #include "ParseSNI.h"
 
+#include "sha256.h"
+
 int init = 0;
 int is_clientHello(const char *buf, ssize_t nread) {
     if (nread > 5 && (unsigned char)buf[0] == 0x16) {  // TLS Handshake 패킷
@@ -90,9 +92,8 @@ resultSNI encrypt_sni_from_client_hello(const char *buf, ssize_t nread) {
                     p_res += 2;
 
                     // hostname 추출 및 해싱
-
-                    unsigned char hostname[256] = {0};         // 호스트명 저장 버퍼
-                    if (name_length > 255) name_length = 255;  // 버퍼 오버플로우 방지
+                    unsigned char hostname[SNI_MAX_SIZE] = {0};
+                    if (name_length > SNI_MAX_SIZE - 1) name_length = SNI_MAX_SIZE - 1;
 
                     // 호스트명 복사
                     memcpy(hostname, p, name_length);
@@ -111,6 +112,7 @@ resultSNI encrypt_sni_from_client_hello(const char *buf, ssize_t nread) {
                         sprintf(&hash_hex[i * 2], "%02x", hash[i]);
                     }
 
+                    // 해시 결과를 hostname 위치에 복사
                     uint16_t sha_len = SHA256_BLOCK_SIZE * 2;
                     for (int i = 0; i < name_length; i++) {
                         p_res[i] = hash_hex[i % sha_len];
@@ -121,7 +123,7 @@ resultSNI encrypt_sni_from_client_hello(const char *buf, ssize_t nread) {
                 }
             }
 
-            break;  // SNI 확장을 찾았음
+            break;
         }
 
         // 다음 확장으로 이동
