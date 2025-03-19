@@ -25,8 +25,6 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         return;
     }
 
-    printf("read_data_porxy, host: %s\n", client->host);
-
     // INFO:l uv_buf_init안하면 실제 보낸 데이터 범위를 제한 할 수 없기 때문에 쓰래기 값이 들어감
     uv_buf_t resBuffer = uv_buf_init(buf->base, nread);
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
@@ -54,21 +52,20 @@ void on_connect_porxy(uv_connect_t *req, int status) {
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
     write_req->data = resBuffer.base;
 
-    // INFO: 해당 과정에서 간혈적 오류 발생
     uv_write(write_req, client->proxyClient, &resBuffer, 1, on_write);
 }
 
-void sendTargetServer(uv_stream_t *clientStream, const uv_buf_t *buf, ssize_t nread) {
+void sendTargetServer(uv_stream_t *clientStream, const char *buf, ssize_t nread) {
     Client *client = (Client *)clientStream->data;
     if (client->proxyClient == NULL || uv_is_closing((uv_handle_t *)client->targetClient)) {
         fprintf(stderr, "sendTargetServer, 소켓이 종료됨\n");
         return;
     }
 
-    printf("sendTargetServer, host: %s, addr: %p\n", client->host, &client->targetClient);
-
+    char *send_buf = (char *)malloc(nread);
+    memcpy(send_buf, buf, nread);
     // INFO:l uv_buf_init안하면 실제 보낸 데이터 범위를 제한 할 수 없기 때문에 쓰래기 값이 들어감
-    uv_buf_t resBuffer = uv_buf_init(buf->base, nread);
+    uv_buf_t resBuffer = uv_buf_init(send_buf, nread);
 
     // 프록시 서버에 연결된 클라이언트의 요청을 대상 서버에 전달
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));

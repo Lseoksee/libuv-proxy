@@ -2,5 +2,7 @@
     "files.associations": {
         "*.h": "c",
         "*.c": "c",
+        "cstdint": "c",
+        "compare": "c"
     }
 }

@@ -8,7 +8,7 @@ set(CMAKE_C_STANDARD 23)
 
 
 # 실행파일 지정
-file(GLOB SOURCES "src/*.c")
+file(GLOB SOURCES "src/*.c" "src/parser/*.c" "src/sha256/*.c")
 add_executable(K-WarningBypass ${SOURCES})
 add_subdirectory(src)
 
@@ -19,8 +19,4 @@ add_subdirectory(src)
 find_package(libuv CONFIG REQUIRED)
 target_link_libraries(K-WarningBypass PRIVATE libuv::uv_a)
 
-target_include_directories(K-WarningBypass PRIVATE include)
-
-# picohttpparser.c & .h를 라이브러리로 추가
-add_library(ParseHttp STATIC lib/ParseHttp.c)
-target_link_libraries(K-WarningBypass PRIVATE ParseHttp)
+target_include_directories(K-WarningBypass PRIVATE src src/parser src/sha256)

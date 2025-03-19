@@ -12,7 +12,7 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf);
 void on_connect_porxy(uv_connect_t *req, int status);
 
 /** 타겟 서버에 데이터 전송 */
-void sendTargetServer(uv_stream_t *clientStream, const uv_buf_t *buf, ssize_t nread);
+void sendTargetServer(uv_stream_t *clientStream, const char*buf, ssize_t nread);
 
 /** 타겟 서버에 연결 시도 */
 void ConnectTargetServer(char *addr, int port, uv_stream_t *clientStream);
