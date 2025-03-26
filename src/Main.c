@@ -2,10 +2,21 @@
 #include "ParseHttp.h"
 #include "ParseSNI.h"
 #include "PorxyClient.h"
+#include "SendDNS.h"
 #include "Utills.h"
 
 /** 서버 구동체 */
 uv_loop_t *loop;
+
+void on_dns(dns_response_t *dns) {
+    if (dns->status == 1) {
+        ConnectTargetServer(dns->ip_address, dns->port, dns->clientStream);
+    }
+
+    if (dns->req != 0) {
+        free_dns(dns);
+    }
+}
 
 /** 클라이언트 데이터 읽기 */
 void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
@@ -35,7 +46,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     }
 
     if (is_connect) {
-        Header HostHeader;
+        Header HostHeader = {NULL};
         char ipaddr[INET6_ADDRSTRLEN];
         HttpRequest parseHeader = parse_http_request(buf->base, buf->len);
 
@@ -52,31 +63,43 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             }
         }
 
-        URL addr = parseURL(HostHeader.value);
-
-        if (!is_ip(addr.url)) {
-            getDnsToAddr(loop, addr.url, addr.port, ipaddr);
-        } else {
-            strcpy(ipaddr, addr.url);
+        if (HostHeader.value == NULL) {
+            printf("Host를 찾을 수 없음\n");
+            return;
         }
 
-        ConnectTargetServer(ipaddr, atoi(addr.port), stream);
+        URL addr = parseURL(HostHeader.value);
+
+        dns_response_t dns = {0};
+        dns.clientStream = stream;
+        dns.port = atoi(addr.port);
+        dns.hostname = strdup(addr.url);
+
+        if (!is_ip(addr.url)) {
+            int status = send_dns_query(loop, addr.url, "1.1.1.1", 1, dns, on_dns);
+            if (status != 1) {
+                printf("DNS 요청 실패 Code: %d\n", status);
+                free_dns(&dns);
+            }
+        } else {
+            on_dns(&dns);
+        }
 
         freeURL(&addr);
         freeHeader(&parseHeader);
     }
     // 프록시 Respose 이후 클라이언트에 http 연결
     else {
-/*         if (is_clientHello(buf->base, nread)) {
-            resultSNI encryptSNI = encrypt_sni_from_client_hello(buf->base, nread);
-            printf("해싱 이전: %s\n", encryptSNI.beforeSNI);
-            printf("해싱 이후: %s\n", encryptSNI.afterSNI);
-            sendTargetServer(stream, encryptSNI.result_buf, nread);
-            free_resultSNI(&encryptSNI);
-        } else {
-            sendTargetServer(stream, buf->base, nread);
-        } */
-       sendTargetServer(stream, buf->base, nread);
+        /*         if (is_clientHello(buf->base, nread)) {
+                    resultSNI encryptSNI = encrypt_sni_from_client_hello(buf->base, nread);
+                    printf("해싱 이전: %s\n", encryptSNI.beforeSNI);
+                    printf("해싱 이후: %s\n", encryptSNI.afterSNI);
+                    sendTargetServer(stream, encryptSNI.result_buf, nread);
+                    free_resultSNI(&encryptSNI);
+                } else {
+                    sendTargetServer(stream, buf->base, nread);
+                } */
+        sendTargetServer(stream, buf->base, nread);
     }
 
     free(buf->base);
@@ -104,6 +127,9 @@ void handle_segfault(int sig) {
 }
 
 int main(int argc, char const *argv[]) {
+    printf("%s, %s\n", argv[0], argv[1]);
+    return 0;
+
     signal(SIGSEGV, handle_segfault);
 
     loop = uv_default_loop();
