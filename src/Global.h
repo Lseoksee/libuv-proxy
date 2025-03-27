@@ -6,6 +6,7 @@
 #include <uv.h>
 #include <getopt.h>
 #include <signal.h>
+#include <time.h>
 
 typedef struct {
     /** 프록시 서버가 대상 서버에 연결하기 위한 클라이언트 (즉 요청을 위한) */

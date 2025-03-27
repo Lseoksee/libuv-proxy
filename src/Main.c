@@ -12,6 +12,23 @@ extern struct option run_args[];
 /** 서버 구동체 */
 uv_loop_t *loop;
 
+void get_client_ip(uv_stream_t* client, char* ip_str, size_t ip_str_len) {
+    struct sockaddr_storage addr;
+    int addr_len = sizeof(addr);
+    
+    // 클라이언트 소켓의 피어 이름(IP 주소) 가져오기
+    uv_tcp_getpeername((uv_tcp_t*)client, (struct sockaddr*)&addr, &addr_len);
+    
+    // IPv4와 IPv6 처리
+    if (addr.ss_family == AF_INET) {
+        struct sockaddr_in* sock_v4 = (struct sockaddr_in*)&addr;
+        inet_ntop(AF_INET, &(sock_v4->sin_addr), ip_str, ip_str_len);
+    } else if (addr.ss_family == AF_INET6) {
+        struct sockaddr_in6* sock_v6 = (struct sockaddr_in6*)&addr;
+        inet_ntop(AF_INET6, &(sock_v6->sin6_addr), ip_str, ip_str_len);
+    }
+}
+
 void on_dns(dns_response_t *dns) {
     if (dns->status == 1) {
         ConnectTargetServer(dns->ip_address, dns->port, dns->clientStream);
@@ -25,7 +42,9 @@ void on_dns(dns_response_t *dns) {
 /** 클라이언트 데이터 읽기 */
 void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     if (nread <= 0) {
-        if (nread != UV_EOF) fprintf(stderr, "read_data, Read error %s\n", uv_err_name(nread));
+        if (nread != UV_EOF) {
+            put_time_log(LOG_WARNING, "클라이언트 데이터 읽기 오류: %s", uv_err_name(nread));
+        }
         uv_close((uv_handle_t *)stream, close_cb);
 
         if (stream->data != NULL) {
@@ -43,7 +62,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     int is_connect = is_connect_request(buf->base);
     // 프록시 연결이 아닌 이상한 패킷 처리
     if (!is_connect && stream->data == NULL) {
-        fprintf(stderr, "허용되지 않는 연결\n");
+        put_time_log(LOG_WARNING, "허용되지 않는 연결");
         free(buf->base);
         uv_close((uv_handle_t *)stream, close_cb);
         return;
@@ -55,7 +74,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         HttpRequest parseHeader = parse_http_request(buf->base, buf->len);
 
         if (parseHeader.header_count == 0) {
-            printf("해더 파싱 실패\n");
+            put_time_log(LOG_WARNING, "클라이언트 해더 파싱 실패");
             return;
         }
 
@@ -68,7 +87,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         }
 
         if (HostHeader.value == NULL) {
-            printf("Host를 찾을 수 없음\n");
+            put_time_log(LOG_WARNING, "Host 헤더를 찾을 수 없음");
             return;
         }
 
@@ -87,14 +106,14 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
                 if (status == 1) {
                     on_dns(&dns);
                 } else {
-                    printf("DNS 요청 실패 Code: %d\n", status);
+                    put_time_log(LOG_ERROR, "DNS 요청 실패 Code: %d\n", status);
                 }
             }
             // 실행 인자 DNS 서버 사용
             else {
                 status = send_dns_query(loop, addr.url, DNS_SERVER, 1, dns, on_dns);
                 if (status != 1) {
-                    printf("DNS 요청 실패 Code: %d\n", status);
+                    put_time_log(LOG_ERROR, "DNS 요청 실패 Code: %d", status);
                     free_dns(&dns);
                 }
             }
@@ -115,7 +134,8 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
                     free_resultSNI(&encryptSNI);
                 } else {
                     sendTargetServer(stream, buf->base, nread);
-                } */
+                }
+        */
         sendTargetServer(stream, buf->base, nread);
     }
 
@@ -124,7 +144,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
 void on_new_connection(uv_stream_t *server, int status) {
     if (status < 0) {
-        fprintf(stderr, "on_new_connection, 연결오류 %s\n", uv_strerror(status));
+        put_time_log(LOG_ERROR, "클라이언트 연결오류: %s", uv_strerror(status));
         return;
     }
 
@@ -132,13 +152,17 @@ void on_new_connection(uv_stream_t *server, int status) {
     client->data = NULL;
     uv_tcp_init(loop, client);
     if (uv_accept(server, (uv_stream_t *)client) == 0) {
+        char client_ip[INET6_ADDRSTRLEN];
+        get_client_ip((uv_stream_t*)client, client_ip, sizeof(client_ip));
+        put_time_log(LOG_INFO, "새로운 클라이언트 연결, IP: %s", client_ip);
+
         uv_read_start((uv_stream_t *)client, alloc_buffer, read_data);
     } else {
         uv_close((uv_handle_t *)client, close_cb);
     }
 }
 
-void handle_segfault(int sig) { fprintf(stderr, "\nERROR: 잘못된 메모리 접근 (Segmentation fault)\n"); }
+void handle_segfault(int sig) { put_time_log(LOG_ERROR, "잘못된 메모리 접근 (Segmentation fault)"); }
 
 int main(int argc, char *argv[]) {
     signal(SIGSEGV, handle_segfault);
@@ -152,7 +176,7 @@ int main(int argc, char *argv[]) {
             case 0:
                 if (strcmp(run_args[option_index].name, "dns") == 0) {
                     if (!is_ip(optarg)) {
-                        fprintf(stderr, "DNS 주소 오류\n");
+                        put_log(LOG_ERROR, "잘못된 DNS 주소");
                         return 1;
                     }
 
@@ -166,7 +190,7 @@ int main(int argc, char *argv[]) {
                 print_help();
                 return 1;
             default:
-                fprintf(stderr, "'%s --help' 로 설명을 확인해 보세요.\n", argv[0]);
+                put_log(LOG_INFO, "'%s --help' 로 설명을 확인해 보세요.\n", argv[0]);
                 return 0;
         }
     }
@@ -187,13 +211,14 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    printf("프록시 서버가 정상적으로 열림\n");
+    put_log(LOG_INFO, "프록시 서버가 정상적으로 열림");
     if (DNS_SERVER == NULL) {
-        printf("DNS: 기본 DNS 서버\n");
+        put_log(LOG_INFO, "DNS: 기본 DNS 서버");
     } else {
-        printf("DNS: %s\n", DNS_SERVER);
+        put_log(LOG_INFO, "DNS: %s", DNS_SERVER);
     }
-    printf("포트: %d\n", SERVER_PORT);
+    put_log(LOG_INFO, "포트: %d", SERVER_PORT);
+    put_log(LOG_INFO, "");
 
     return uv_run(loop, UV_RUN_DEFAULT);
 }

@@ -3,6 +3,7 @@
         "*.h": "c",
         "*.c": "c",
         "cstdint": "c",
-        "compare": "c"
+        "compare": "c",
+        "cmath": "c"
     }
 }

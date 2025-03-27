@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Global.h"
 
 struct dns_request_t;
