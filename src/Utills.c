@@ -1,29 +1,18 @@
 #include "Utills.h"
 
-void getDnsToAddr(uv_loop_t *loop, const char *host, const char *port, char *res_buf) {
-    uv_getaddrinfo_t res;
-
-    struct addrinfo hints;
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
-    hints.ai_flags = 0;
-
-    int status = uv_getaddrinfo(loop, &res, NULL, host, port, &hints);
-    if (status != 0) {
+void print_help() {
+    FILE *file = fopen(DATA_FILE, "r");
+    if (file == NULL) {
         return;
     }
 
-    void *addr_ptr;
-    char addr[INET_ADDRSTRLEN];
+    char buffer[256];
+    while (fgets(buffer, sizeof(buffer), file)) {
+        printf("%s", buffer);
+    }
 
-    struct sockaddr_in *ipv4 = (struct sockaddr_in *) res.addrinfo->ai_addr;
-    addr_ptr = &(ipv4->sin_addr);
-    inet_ntop(res.addrinfo->ai_family, addr_ptr, addr, sizeof(addr));
-
-    strcpy_s(res_buf, INET_ADDRSTRLEN, addr);
-
-    uv_freeaddrinfo(res.addrinfo);
+    fclose(file);
+    return;
 }
 
 int is_ip(const char *input) {

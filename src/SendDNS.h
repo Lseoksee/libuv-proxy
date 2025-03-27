@@ -37,4 +37,12 @@ typedef struct dns_request_t {
  * `-4`: UDP 전송 실패
  */
 int send_dns_query(uv_loop_t* loop, const char* hostname, const char* dns_server, int query_type, dns_response_t res, dns_query_cb cb);
+
 void free_dns(dns_response_t* res);
+
+/** 기본 DNS 서버로 요청합니다
+ * @return
+ * `1`: 성공,
+ * `-1`: DNS 요청 실패,
+ */
+int send_default_dns(uv_loop_t* loop, const char* host, const char* port, dns_response_t* dns_res);

@@ -5,6 +5,10 @@
 #include "SendDNS.h"
 #include "Utills.h"
 
+extern char *DNS_SERVER;
+extern int SERVER_PORT;
+extern struct option run_args[];
+
 /** 서버 구동체 */
 uv_loop_t *loop;
 
@@ -70,16 +74,29 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
         URL addr = parseURL(HostHeader.value);
 
+        int status;
         dns_response_t dns = {0};
         dns.clientStream = stream;
         dns.port = atoi(addr.port);
         dns.hostname = strdup(addr.url);
 
         if (!is_ip(addr.url)) {
-            int status = send_dns_query(loop, addr.url, "1.1.1.1", 1, dns, on_dns);
-            if (status != 1) {
-                printf("DNS 요청 실패 Code: %d\n", status);
-                free_dns(&dns);
+            // 기본 DNS 서버 사용
+            if (DNS_SERVER == NULL) {
+                status = send_default_dns(loop, addr.url, addr.port, &dns);
+                if (status == 1) {
+                    on_dns(&dns);
+                } else {
+                    printf("DNS 요청 실패 Code: %d\n", status);
+                }
+            }
+            // 실행 인자 DNS 서버 사용
+            else {
+                status = send_dns_query(loop, addr.url, DNS_SERVER, 1, dns, on_dns);
+                if (status != 1) {
+                    printf("DNS 요청 실패 Code: %d\n", status);
+                    free_dns(&dns);
+                }
             }
         } else {
             on_dns(&dns);
@@ -121,16 +138,38 @@ void on_new_connection(uv_stream_t *server, int status) {
     }
 }
 
-void handle_segfault(int sig) {
-    fprintf(stderr, "\nERROR: 잘못된 메모리 접근 (Segmentation fault)\n");
-    system("pause");
-}
+void handle_segfault(int sig) { fprintf(stderr, "\nERROR: 잘못된 메모리 접근 (Segmentation fault)\n"); }
 
-int main(int argc, char const *argv[]) {
-    printf("%s, %s\n", argv[0], argv[1]);
-    return 0;
-
+int main(int argc, char *argv[]) {
     signal(SIGSEGV, handle_segfault);
+
+    int option_index = 0;
+    int opt;
+
+    // 실행 인자 파싱
+    while ((opt = getopt_long(argc, argv, "p:h", run_args, &option_index)) != -1) {
+        switch (opt) {
+            case 0:
+                if (strcmp(run_args[option_index].name, "dns") == 0) {
+                    if (!is_ip(optarg)) {
+                        fprintf(stderr, "DNS 주소 오류\n");
+                        return 1;
+                    }
+
+                    DNS_SERVER = strdup(optarg);
+                }
+                break;
+            case 'p':
+                SERVER_PORT = atoi(optarg);
+                break;
+            case 'h':
+                print_help();
+                return 1;
+            default:
+                fprintf(stderr, "'%s --help' 로 설명을 확인해 보세요.\n", argv[0]);
+                return 0;
+        }
+    }
 
     loop = uv_default_loop();
 
@@ -139,7 +178,7 @@ int main(int argc, char const *argv[]) {
     init_PorxyClient(loop);
 
     struct sockaddr_in addr;
-    uv_ip4_addr("0.0.0.0", DEFAULT_PORT, &addr);
+    uv_ip4_addr("0.0.0.0", SERVER_PORT, &addr);
 
     uv_tcp_bind(&server, (const struct sockaddr *)&addr, 0);
     int r = uv_listen((uv_stream_t *)&server, DEFAULT_BACKLOG, on_new_connection);
@@ -147,6 +186,14 @@ int main(int argc, char const *argv[]) {
         fprintf(stderr, "Listen error %s\n", uv_strerror(r));
         return 1;
     }
+
+    printf("프록시 서버가 정상적으로 열림\n");
+    if (DNS_SERVER == NULL) {
+        printf("DNS: 기본 DNS 서버\n");
+    } else {
+        printf("DNS: %s\n", DNS_SERVER);
+    }
+    printf("포트: %d\n", SERVER_PORT);
 
     return uv_run(loop, UV_RUN_DEFAULT);
 }

@@ -6,11 +6,20 @@ project(K-WarningBypass VERSION 0.1.0 LANGUAGES C)
 set(CMAKE_C_COMPILER "gcc")
 set(CMAKE_C_STANDARD 23)
 
-
 # 실행파일 지정
 file(GLOB SOURCES "src/*.c" "src/parser/*.c" "src/sha256/*.c")
 add_executable(K-WarningBypass ${SOURCES})
 add_subdirectory(src)
+
+# 실행파일에 help.txt 파일 포함하기
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/res/help.txt
+    ${CMAKE_CURRENT_BINARY_DIR}/help.txt
+    COPYONLY
+)
+set_target_properties(K-WarningBypass PROPERTIES 
+    COMPILE_DEFINITIONS "DATA_FILE=\"${CMAKE_CURRENT_BINARY_DIR}/help.txt\""
+)
 
 # vcpkg 패키지 경로 설정
 # set(CMAKE_PREFIX_PATH "vcpkg_installed/vcpkg/pkgs/libuv_x64-windows/share/libuv")

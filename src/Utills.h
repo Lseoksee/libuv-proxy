@@ -1,9 +1,12 @@
 #pragma once
 
+#ifndef DATA_FILE
+#define DATA_FILE "help.txt"
+#endif
+
 #include "Global.h"
 
-/** 도메인 -> IPv4 */
-void getDnsToAddr(uv_loop_t *loop, const char *host, const char *port, char *res_buf);
+void print_help();
 
 /** ip 인지 여부 확인 */
 int is_ip(const char *input);

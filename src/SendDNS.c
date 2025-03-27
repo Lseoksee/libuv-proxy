@@ -1,5 +1,33 @@
 #include "SendDNS.h"
 
+int send_default_dns(uv_loop_t* loop, const char* host, const char* port, dns_response_t* dns_res) {
+    uv_getaddrinfo_t res;
+
+    struct addrinfo hints;
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    hints.ai_flags = 0;
+
+    int status = uv_getaddrinfo(loop, &res, NULL, host, port, &hints);
+    if (status != 0) {
+        return -1;
+    }
+
+    void* addr_ptr;
+    char addr[INET_ADDRSTRLEN];
+
+    struct sockaddr_in* ipv4 = (struct sockaddr_in*)res.addrinfo->ai_addr;
+    addr_ptr = &(ipv4->sin_addr);
+    inet_ntop(res.addrinfo->ai_family, addr_ptr, addr, sizeof(addr));
+
+    strcpy_s(dns_res->ip_address, INET_ADDRSTRLEN, addr);
+
+    uv_freeaddrinfo(res.addrinfo);
+    dns_res->status = 1;
+    return 1;
+}
+
 // DNS 패킷 생성 함수 (간단한 버전)
 void create_dns_query(const char* hostname, int query_type, unsigned char* buffer, int* length) {
     // DNS 헤더 (12바이트)
