@@ -1,5 +1,5 @@
+#include "Global.h"
 #include "PorxyClient.h"
-
 #include "ServerLog.h"
 
 uv_loop_t *mainLoop = NULL;
@@ -9,6 +9,7 @@ const char *established = "HTTP/1.1 200 Connection Established\r\n\r\n";
 
 void init_PorxyClient(uv_loop_t *loop) { mainLoop = loop; }
 
+// 타겟 서버에 데이터 읽기
 void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     Client *client = (Client *)stream->data;
 
@@ -19,6 +20,7 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
         uv_close((uv_handle_t *)stream, close_cb);
 
+        // 타겟 서버 연결 종료 시 클라이언트에게도 연결 종료 요청을 보냄
         if (client->proxyClient != NULL) {
             uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
             uv_shutdown(shutdown_req, client->proxyClient, on_shutdown);
@@ -37,6 +39,7 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     uv_write(write_req, client->proxyClient, &resBuffer, 1, on_write);
 }
 
+// 타겟 서버 연결 완료
 void on_connect_porxy(uv_connect_t *req, int status) {
     Client *client = (Client *)req->handle->data;
 

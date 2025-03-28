@@ -1,3 +1,4 @@
+#include "Global.h"
 #include "SendDNS.h"
 
 int send_default_dns(uv_loop_t* loop, const char* host, const char* port, dns_response_t* dns_res) {

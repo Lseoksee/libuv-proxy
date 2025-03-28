@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Global.h"
-
 struct dns_request_t;
 struct dns_response_t;
 

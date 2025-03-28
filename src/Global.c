@@ -3,7 +3,7 @@
 int SERVER_PORT = 1503;
 char *DNS_SERVER = NULL;
 
-struct option run_args[] = {{"port", required_argument, 0, 'p'}, {"dns", required_argument, 0,  0}, {"help", no_argument, 0, 'h'}, {0, 0, 0, 0}};
+struct option run_args[] = {{"port", required_argument, 0, 'p'}, {"dns", required_argument, 0, 0}, {"help", no_argument, 0, 'h'}, {0, 0, 0, 0}};
 
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     buf->base = (char *)malloc(suggested_size);
@@ -11,6 +11,11 @@ void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 }
 
 void close_cb(uv_handle_t *handle) {
+    Client *client = (Client *)handle->data;
+    if (client->host != NULL) {
+        free(client->host);
+        client->host = NULL;
+    }
     free(handle);
     handle = NULL;
 }

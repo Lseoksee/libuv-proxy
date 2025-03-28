@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Global.h"
-
 #ifndef DATA_FILE
 #define DATA_FILE "help.txt"
 #endif

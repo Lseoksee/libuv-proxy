@@ -13,6 +13,12 @@ extern struct option run_args[];
 /** 서버 구동체 */
 uv_loop_t *loop;
 
+Client *Create_client() {
+    Client *client_data = (Client *) malloc(sizeof(Client));
+    memset(client_data, 0, sizeof(Client));
+    return client_data;
+}
+
 void on_dns(dns_response_t *dns) {
     if (dns->status == 1) {
         ConnectTargetServer(dns->ip_address, dns->port, dns->clientStream);
@@ -33,14 +39,13 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         if (nread != UV_EOF) {
             put_ip_log(LOG_WARNING, client->ClientIP, "클라이언트 데이터 읽기 오류, Code: %s", uv_err_name(nread));
         }
+
         uv_close((uv_handle_t *)stream, close_cb);
 
-        // TODO: 이부분 수정 필요
-        if (client != NULL) {
-            if (client->targetClient != NULL) {
-                uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-                uv_shutdown(shutdown_req, client->targetClient, on_shutdown);
-            }
+        // 프록서 서버 클라이언트 연결 종료 시 타겟 서버에도 연결 종료 요청을 보냄
+        if (client->targetClient != NULL) {
+            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
+            uv_shutdown(shutdown_req, client->targetClient, on_shutdown);
         }
         return;
     }
@@ -141,10 +146,9 @@ void on_new_connection(uv_stream_t *server, int status) {
     uv_tcp_t *client = (uv_tcp_t *)malloc(sizeof(uv_tcp_t));
     uv_tcp_init(loop, client);
     if (uv_accept(server, (uv_stream_t *)client) == 0) {
-        Client *client_data = (Client *)malloc(sizeof(Client));
-        client_data->state = 0;
-        get_client_ip((uv_stream_t *)client, client_data->ClientIP, sizeof(client_data->ClientIP));
+        Client *client_data = Create_client();
         client->data = client_data;
+        get_client_ip((uv_stream_t *)client, client_data->ClientIP, sizeof(client_data->ClientIP));
         uv_read_start((uv_stream_t *)client, alloc_buffer, read_data);
         put_ip_log(LOG_INFO, client_data->ClientIP, "프록시 연결 완료");
     } else {

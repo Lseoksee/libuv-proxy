@@ -1,3 +1,4 @@
+#include "Global.h"
 #include "Utills.h"
 
 void get_client_ip(uv_stream_t* client, char* ip_str, size_t ip_str_len) {

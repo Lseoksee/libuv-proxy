@@ -1,3 +1,4 @@
+#include "Global.h"
 #include "ServerLog.h"
 
 void print_help() {
