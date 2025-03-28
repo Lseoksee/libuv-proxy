@@ -14,7 +14,7 @@ extern struct option run_args[];
 uv_loop_t *loop;
 
 Client *Create_client() {
-    Client *client_data = (Client *) malloc(sizeof(Client));
+    Client *client_data = (Client *)malloc(sizeof(Client));
     memset(client_data, 0, sizeof(Client));
     return client_data;
 }
@@ -101,14 +101,14 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
                 if (status == 1) {
                     on_dns(&dns);
                 } else {
-                    put_time_log(LOG_ERROR, "DNS 요청 실패 Code: %d\n", status);
+                    put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 요청 실패, Code: %d\n", client->host, status);
                 }
             }
             // 실행 인자 DNS 서버 사용
             else {
                 status = send_dns_query(loop, addr.url, DNS_SERVER, 1, dns, on_dns);
                 if (status != 1) {
-                    put_time_log(LOG_ERROR, "DNS 요청 실패 Code: %d", status);
+                    put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 요청 실패, Code: %d\n", client->host, status);
                     free_dns(&dns);
                 }
             }

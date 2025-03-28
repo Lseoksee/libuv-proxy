@@ -12,19 +12,25 @@ void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 
 void close_cb(uv_handle_t *handle) {
     Client *client = (Client *)handle->data;
-    if (client->host != NULL) {
-        free(client->host);
-        client->host = NULL;
+
+    if (client->proxyClient == (uv_stream_t *)handle) {
+        client->proxyClient = NULL;
+    } else if (client->targetClient == (uv_stream_t *)handle) {
+        client->targetClient = NULL;
     }
+
     free(handle);
+    free(client->host);
     handle = NULL;
+    client->host = NULL;
+
+    if (client->proxyClient == NULL && client->targetClient == NULL) {
+        free(client);
+        client = NULL;
+    }
 }
 
 void on_write(uv_write_t *req, int status) {
-    if (status < 0) {
-        fprintf(stderr, "Write error: %s\n", uv_strerror(status));
-    }
-
     free(req->data);
     free(req);
 }
