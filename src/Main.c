@@ -3,6 +3,7 @@
 #include "ParseSNI.h"
 #include "PorxyClient.h"
 #include "SendDNS.h"
+#include "ServerLog.h"
 #include "Utills.h"
 
 extern char *DNS_SERVER;
@@ -12,26 +13,11 @@ extern struct option run_args[];
 /** 서버 구동체 */
 uv_loop_t *loop;
 
-void get_client_ip(uv_stream_t* client, char* ip_str, size_t ip_str_len) {
-    struct sockaddr_storage addr;
-    int addr_len = sizeof(addr);
-    
-    // 클라이언트 소켓의 피어 이름(IP 주소) 가져오기
-    uv_tcp_getpeername((uv_tcp_t*)client, (struct sockaddr*)&addr, &addr_len);
-    
-    // IPv4와 IPv6 처리
-    if (addr.ss_family == AF_INET) {
-        struct sockaddr_in* sock_v4 = (struct sockaddr_in*)&addr;
-        inet_ntop(AF_INET, &(sock_v4->sin_addr), ip_str, ip_str_len);
-    } else if (addr.ss_family == AF_INET6) {
-        struct sockaddr_in6* sock_v6 = (struct sockaddr_in6*)&addr;
-        inet_ntop(AF_INET6, &(sock_v6->sin6_addr), ip_str, ip_str_len);
-    }
-}
-
 void on_dns(dns_response_t *dns) {
     if (dns->status == 1) {
         ConnectTargetServer(dns->ip_address, dns->port, dns->clientStream);
+        Client *client = (Client *)dns->clientStream->data;
+        client->state = 1;
     }
 
     if (dns->req != 0) {
@@ -41,15 +27,16 @@ void on_dns(dns_response_t *dns) {
 
 /** 클라이언트 데이터 읽기 */
 void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
+    Client *client = (Client *)stream->data;
+
     if (nread <= 0) {
         if (nread != UV_EOF) {
-            put_time_log(LOG_WARNING, "클라이언트 데이터 읽기 오류: %s", uv_err_name(nread));
+            put_ip_log(LOG_WARNING, client->ClientIP, "클라이언트 데이터 읽기 오류, Code: %s", uv_err_name(nread));
         }
         uv_close((uv_handle_t *)stream, close_cb);
 
-        if (stream->data != NULL) {
-            Client *client = (Client *)stream->data;
-
+        // TODO: 이부분 수정 필요
+        if (client != NULL) {
             if (client->targetClient != NULL) {
                 uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
                 uv_shutdown(shutdown_req, client->targetClient, on_shutdown);
@@ -61,8 +48,8 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     // 프록시 처음 연결인지 확인
     int is_connect = is_connect_request(buf->base);
     // 프록시 연결이 아닌 이상한 패킷 처리
-    if (!is_connect && stream->data == NULL) {
-        put_time_log(LOG_WARNING, "허용되지 않는 연결");
+    if (!is_connect && client->state == 0) {
+        put_ip_log(LOG_WARNING, client->ClientIP, "허용되지 않는 프로토콜");
         free(buf->base);
         uv_close((uv_handle_t *)stream, close_cb);
         return;
@@ -74,7 +61,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         HttpRequest parseHeader = parse_http_request(buf->base, buf->len);
 
         if (parseHeader.header_count == 0) {
-            put_time_log(LOG_WARNING, "클라이언트 해더 파싱 실패");
+            put_ip_log(LOG_WARNING, client->ClientIP, "HTTP 프록시 해더 파싱 실패");
             return;
         }
 
@@ -87,11 +74,14 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         }
 
         if (HostHeader.value == NULL) {
-            put_time_log(LOG_WARNING, "Host 헤더를 찾을 수 없음");
+            put_ip_log(LOG_WARNING, client->ClientIP, "Host 헤더를 찾을 수 없음");
             return;
         }
 
         URL addr = parseURL(HostHeader.value);
+
+        put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", addr.url);
+        client->host = strdup(addr.url);
 
         int status;
         dns_response_t dns = {0};
@@ -144,19 +134,19 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
 void on_new_connection(uv_stream_t *server, int status) {
     if (status < 0) {
-        put_time_log(LOG_ERROR, "클라이언트 연결오류: %s", uv_strerror(status));
+        put_time_log(LOG_ERROR, "프록시 연결오류: %s", uv_strerror(status));
         return;
     }
 
     uv_tcp_t *client = (uv_tcp_t *)malloc(sizeof(uv_tcp_t));
-    client->data = NULL;
     uv_tcp_init(loop, client);
     if (uv_accept(server, (uv_stream_t *)client) == 0) {
-        char client_ip[INET6_ADDRSTRLEN];
-        get_client_ip((uv_stream_t*)client, client_ip, sizeof(client_ip));
-        put_time_log(LOG_INFO, "새로운 클라이언트 연결, IP: %s", client_ip);
-
+        Client *client_data = (Client *)malloc(sizeof(Client));
+        client_data->state = 0;
+        get_client_ip((uv_stream_t *)client, client_data->ClientIP, sizeof(client_data->ClientIP));
+        client->data = client_data;
         uv_read_start((uv_stream_t *)client, alloc_buffer, read_data);
+        put_ip_log(LOG_INFO, client_data->ClientIP, "프록시 연결 완료");
     } else {
         uv_close((uv_handle_t *)client, close_cb);
     }

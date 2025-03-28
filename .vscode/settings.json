@@ -1,9 +1,6 @@
 {
     "files.associations": {
         "*.h": "c",
-        "*.c": "c",
-        "cstdint": "c",
-        "compare": "c",
-        "cmath": "c"
+        "*.c": "c"
     }
 }

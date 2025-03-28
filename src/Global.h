@@ -9,11 +9,17 @@
 #include <time.h>
 
 typedef struct {
+    /** 클라이언트 상태
+     * `0`: 최초 연결
+     * `1`: 프록시 연결 완료 후 데이터 교환
+     */
+    int state;
     /** 프록시 서버가 대상 서버에 연결하기 위한 클라이언트 (즉 요청을 위한) */
     uv_stream_t *targetClient;
     /** 프록시 서버에 접속하는 클라이언트 (즉 응답을 위한) */
     uv_stream_t *proxyClient;
-    char host[1024];
+    char *host;
+    char ClientIP[INET6_ADDRSTRLEN];
 } Client;
 
 /** 연결 요청 대기 큐 최대길이 (리눅스 기본값 128개) */
