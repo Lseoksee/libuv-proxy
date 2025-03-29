@@ -213,7 +213,7 @@ void on_timeout(uv_timer_t* timer) {
 // UDP 전송 콜백
 void on_udp_send(uv_udp_send_t* req, int status) { free(req); }
 
-int send_dns_query(uv_loop_t* loop, const char* hostname, const char* dns_server, int query_type, dns_response_t res, dns_query_cb cb) {
+int send_dns_query(uv_loop_t* loop, char* hostname, char* dns_server, int query_type, dns_response_t res, dns_query_cb cb) {
     struct sockaddr_in dns_addr;
     int r;
 
@@ -230,6 +230,7 @@ int send_dns_query(uv_loop_t* loop, const char* hostname, const char* dns_server
     req->cb = cb;
     req->res.status = 1;
     req->res.req = req;
+    req->res.dns_address = dns_server;
 
     // UDP 핸들 초기화
     uv_udp_init(loop, &req->udp_handle);
@@ -285,4 +286,7 @@ int send_dns_query(uv_loop_t* loop, const char* hostname, const char* dns_server
     return 1;
 }
 
-void free_dns(dns_response_t* res) { free(res->hostname); }
+void free_dns(dns_response_t* res) {
+    free(res->hostname);
+    res->hostname = NULL;
+}

@@ -1,7 +1,7 @@
 #include "Global.h"
 
 int SERVER_PORT = 1503;
-char *DNS_SERVER = NULL;
+DnsOptions SERVER_DNS = {NULL};
 
 struct option run_args[] = {{"port", required_argument, 0, 'p'}, {"dns", required_argument, 0, 0}, {"help", no_argument, 0, 'h'}, {0, 0, 0, 0}};
 

@@ -14,6 +14,7 @@ typedef struct dns_response_t {
     int status;
     int port;
     char* hostname;
+    char* dns_address;
     char ip_address[INET6_ADDRSTRLEN];
     uv_stream_t* clientStream;
     struct dns_request_t* req;
@@ -36,7 +37,7 @@ typedef struct dns_request_t {
  * `-3`: UDP 수신 시작 실패,
  * `-4`: UDP 전송 실패
  */
-int send_dns_query(uv_loop_t* loop, const char* hostname, const char* dns_server, int query_type, dns_response_t res, dns_query_cb cb);
+int send_dns_query(uv_loop_t* loop, char* hostname, char* dns_server, int query_type, dns_response_t res, dns_query_cb cb);
 
 void free_dns(dns_response_t* res);
 

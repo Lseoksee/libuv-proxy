@@ -6,7 +6,8 @@
 #include "ServerLog.h"
 #include "Utills.h"
 
-extern char *DNS_SERVER;
+// 실행인자 DNS용
+extern DnsOptions SERVER_DNS;
 extern int SERVER_PORT;
 extern struct option run_args[];
 
@@ -19,11 +20,54 @@ Client *Create_client() {
     return client_data;
 }
 
+void parse_dns(char *original) {
+    char res_buf[INET6_ADDRSTRLEN * 2 + 1];
+
+    // 공백 재거
+    int search, res_index = 0;
+    for (search = 0; search < strlen(original); search++) {
+        if (original[search] != ' ') {
+            res_buf[res_index] = original[search];
+            res_index++;
+        }
+    }
+    res_buf[res_index] = '\0';
+
+    char *colon = strchr(original, ',');
+    if (colon == NULL) {
+        SERVER_DNS.dns_1 = strdup(res_buf);
+    } else {
+        *colon = '\0';
+        strchr(colon + 1, ',') ? *strchr(colon + 1, ',') = '\0' : 0;
+        SERVER_DNS.dns_1 = strdup(original);
+        SERVER_DNS.dns_2 = strdup(colon + 1);
+    }
+}
+
 void on_dns(dns_response_t *dns) {
+    Client *client = (Client *)dns->clientStream->data;
+
     if (dns->status == 1) {
         ConnectTargetServer(dns->ip_address, dns->port, dns->clientStream);
-        Client *client = (Client *)dns->clientStream->data;
         client->state = 1;
+    } else {
+        if (dns->status == -1) {
+            put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, 타임아웃", dns->hostname);
+        } else if (dns->status == -2) {
+            put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, 해당 호스트를 찾을 수 없음", dns->hostname);
+        } else {
+            put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, 알 수 없는 오류", dns->hostname);
+        }
+
+        if (SERVER_DNS.dns_1 != NULL && dns->dns_address == SERVER_DNS.dns_1) {
+            put_log(LOG_INFO,"여기 들감");
+            int status = send_dns_query(loop, dns->hostname, SERVER_DNS.dns_2, 1, *dns, on_dns);
+            if (status != 1) {
+                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, Code: %d\n", client->host, status);
+                free_dns(dns);
+            }
+            return;
+        }
     }
 
     if (dns->req != 0) {
@@ -96,19 +140,19 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
         if (!is_ip(addr.url)) {
             // 기본 DNS 서버 사용
-            if (DNS_SERVER == NULL) {
+            if (SERVER_DNS.dns_1 == NULL) {
                 status = send_default_dns(loop, addr.url, addr.port, &dns);
                 if (status == 1) {
                     on_dns(&dns);
                 } else {
-                    put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 요청 실패, Code: %d\n", client->host, status);
+                    put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, Code: %d\n", client->host, status);
                 }
             }
             // 실행 인자 DNS 서버 사용
             else {
-                status = send_dns_query(loop, addr.url, DNS_SERVER, 1, dns, on_dns);
+                status = send_dns_query(loop, addr.url, SERVER_DNS.dns_1, 1, dns, on_dns);
                 if (status != 1) {
-                    put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 요청 실패, Code: %d\n", client->host, status);
+                    put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, Code: %d\n", client->host, status);
                     free_dns(&dns);
                 }
             }
@@ -169,12 +213,13 @@ int main(int argc, char *argv[]) {
         switch (opt) {
             case 0:
                 if (strcmp(run_args[option_index].name, "dns") == 0) {
-                    if (!is_ip(optarg)) {
+                    parse_dns(optarg);
+
+                    if (!is_ip(SERVER_DNS.dns_1) || !is_ip(SERVER_DNS.dns_2)) {
                         put_log(LOG_ERROR, "잘못된 DNS 주소");
                         return 1;
                     }
 
-                    DNS_SERVER = strdup(optarg);
                 }
                 break;
             case 'p':
@@ -201,15 +246,14 @@ int main(int argc, char *argv[]) {
     uv_tcp_bind(&server, (const struct sockaddr *)&addr, 0);
     int r = uv_listen((uv_stream_t *)&server, DEFAULT_BACKLOG, on_new_connection);
     if (r) {
-        fprintf(stderr, "Listen error %s\n", uv_strerror(r));
         return 1;
     }
 
     put_log(LOG_INFO, "프록시 서버가 정상적으로 열림");
-    if (DNS_SERVER == NULL) {
+    if (SERVER_DNS.dns_1 == NULL) {
         put_log(LOG_INFO, "DNS: 기본 DNS 서버");
     } else {
-        put_log(LOG_INFO, "DNS: %s", DNS_SERVER);
+        put_log(LOG_INFO, "DNS: %s,%s", SERVER_DNS.dns_1, SERVER_DNS.dns_2 ? SERVER_DNS.dns_2 : "");
     }
     put_log(LOG_INFO, "포트: %d", SERVER_PORT);
     put_log(LOG_INFO, "");

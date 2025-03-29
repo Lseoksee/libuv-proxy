@@ -22,6 +22,11 @@ typedef struct {
     char ClientIP[INET6_ADDRSTRLEN];
 } Client;
 
+typedef struct {
+    char *dns_1;
+    char *dns_2;
+} DnsOptions;
+
 /** 연결 요청 대기 큐 최대길이 (리눅스 기본값 128개) */
 #define DEFAULT_BACKLOG 128
 
