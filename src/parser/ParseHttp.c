@@ -43,8 +43,8 @@ URL parseURL(const char *hostURL) {
     //\0 은 C언어가 문장에 끝을 파악하는 기호인데 이를 이용하여 문자열을 나누는 것이다.
     // 그럼 hostURL은 : 이전, colon+1은 : 이후
     char *colon = strchr(temp, ':');
-    
-    //HTTP 인 경우 포트번호를 포함하지 않음
+
+    // HTTP 인 경우 포트번호를 포함하지 않음
     if (colon == NULL) {
         res.url = temp;
         res.port = "80";
@@ -58,10 +58,19 @@ URL parseURL(const char *hostURL) {
 }
 
 void freeHeader(HttpRequest *req) {
+    if (req == NULL) {
+        return;
+    }
+
     for (int i = 0; i < req->header_count; i++) {
         free(req->headers[i].key);
         free(req->headers[i].value);
     }
 }
 
-void freeURL(URL *url) { free(url->url); }
+void freeURL(URL *url) {
+    if (url == NULL) {
+        return;
+    }
+    free(url->url);
+}

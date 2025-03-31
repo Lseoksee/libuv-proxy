@@ -93,16 +93,29 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         return;
     }
 
+    URL *addr_p = NULL;
+    HttpRequest *parseHeader_p = NULL;
+
     // 최초 연결 시
     if (client->state == 0) {
+        URL addr;
+        HttpRequest parseHeader;
+        dns_response_t dns = {0};
+
+        addr_p = &addr;
+        parseHeader_p = &parseHeader;
         char ipaddr[INET6_ADDRSTRLEN];
-        HttpRequest parseHeader = parse_http_request(buf->base, buf->len);
         char *host, *Proxy = NULL;
         int status;
 
+        parseHeader = parse_http_request(buf->base, buf->len);
+
         if (!parseHeader.state) {
             put_ip_log(LOG_ERROR, client->ClientIP, "허용되지 않는 연결, HTTP 해더 파싱 실패");
+            freeHeader(parseHeader_p);
             free(buf->base);
+            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
+            uv_shutdown(shutdown_req, stream, on_shutdown);
             return;
         }
 
@@ -117,16 +130,18 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         }
 
         if (host == NULL || Proxy == NULL) {
-            put_ip_log(LOG_WARNING, client->ClientIP, "프록시 헤더를 찾을 수 없음");
+            put_ip_log(LOG_ERROR, client->ClientIP, "프록시 헤더를 찾을 수 없음");
+            freeHeader(parseHeader_p);
             free(buf->base);
+            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
+            uv_shutdown(shutdown_req, stream, on_shutdown);
             return;
         }
 
-        URL addr = parseURL(host);
+        addr = parseURL(host);
         put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", addr.url);
         client->host = strdup(addr.url);
 
-        dns_response_t dns = {0};
         dns.clientStream = stream;
         dns.port = atoi(addr.port);
         dns.hostname = strdup(addr.url);
@@ -163,15 +178,14 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         } else {
             on_dns(&dns);
         }
-
-        freeURL(&addr);
-        freeHeader(&parseHeader);
     }
     // HTTPS에 경우 Connection Established 패킷을 받은 경우 이후 실제 TLS 패킷을 보냄
     else {
         sendTargetServer(stream, buf->base, nread);
     }
 
+    freeURL(addr_p);
+    freeHeader(parseHeader_p);
     free(buf->base);
 }
 
