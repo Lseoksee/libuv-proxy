@@ -59,6 +59,7 @@ void on_dns(dns_response_t *dns) {
             put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, 알 수 없는 오류", dns->hostname);
         }
 
+        // 보조 DNS 주소로 다시 시도
         if (SERVER_DNS.dns_1 != NULL && dns->dns_address == SERVER_DNS.dns_1) {
             int status = send_dns_query(loop, dns->hostname, SERVER_DNS.dns_2, 1, *dns, on_dns);
             if (status != 1) {
@@ -66,6 +67,10 @@ void on_dns(dns_response_t *dns) {
                 free_dns(dns);
             }
             return;
+        }
+        // 보조 DNS 까지 먹통이면 연결 종료
+        else if (SERVER_DNS.dns_1 != NULL && dns->dns_address == SERVER_DNS.dns_2) {
+            uv_close((uv_handle_t *)client->proxyClient, close_cb);
         }
     }
 
@@ -114,8 +119,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             put_ip_log(LOG_ERROR, client->ClientIP, "허용되지 않는 연결, HTTP 해더 파싱 실패");
             freeHeader(parseHeader_p);
             free(buf->base);
-            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-            uv_shutdown(shutdown_req, stream, on_shutdown);
+            uv_close((uv_handle_t *)client->proxyClient, close_cb);
             return;
         }
 
@@ -133,8 +137,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             put_ip_log(LOG_ERROR, client->ClientIP, "프록시 헤더를 찾을 수 없음");
             freeHeader(parseHeader_p);
             free(buf->base);
-            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-            uv_shutdown(shutdown_req, stream, on_shutdown);
+            uv_close((uv_handle_t *)client->proxyClient, close_cb);
             return;
         }
 
@@ -164,15 +167,17 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
                 if (status == 1) {
                     on_dns(&dns);
                 } else {
-                    put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, Code: %d\n", client->host, status);
+                    put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, Code: %d", client->host, status);
+                    uv_close((uv_handle_t *)stream, close_cb);
                 }
             }
             // 실행 인자 DNS 서버 사용
             else {
                 status = send_dns_query(loop, addr.url, SERVER_DNS.dns_1, 1, dns, on_dns);
                 if (status != 1) {
-                    put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, Code: %d\n", client->host, status);
+                    put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, Code: %d", client->host, status);
                     free_dns(&dns);
+                    uv_close((uv_handle_t *)stream, close_cb);
                 }
             }
         } else {
