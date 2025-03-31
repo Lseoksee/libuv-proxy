@@ -72,9 +72,10 @@ void on_connect_porxy(uv_connect_t *req, int status) {
 
 void sendTargetServer(uv_stream_t *clientStream, const char *buf, ssize_t nread) {
     Client *client = (Client *)clientStream->data;
-    // TODO: 타겟 서버가 종료가 되었는데, 문제는 비동기 특성으로 인해 sendTargetServer가 먼저 호출되고
+    // INFO: 타겟 서버가 종료가 되었는데, 문제는 비동기 특성으로 인해 sendTargetServer가 먼저 호출되고
     //  uv_is_closing() 함수가 실행 한 도중에 targetClient가 메모리에서 free되면 Segmentation fault 애러가 발생함
-    if (client->proxyClient == NULL || uv_is_closing((uv_handle_t *)client->targetClient)) {
+    // 지금은 해당현상이 발생할 확률이 현저히 낮지만 만약 추후 발생하면 이 문제를 살펴봐야함
+    if (client->targetClient == NULL || uv_is_closing((uv_handle_t *)client->targetClient)) {
         return;
     }
 

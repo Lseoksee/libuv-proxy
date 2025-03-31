@@ -19,6 +19,7 @@ void close_cb(uv_handle_t *handle) {
         client->targetClient = NULL;
     }
 
+    uv_unref(handle);
     free(handle);
     free(client->host);
     handle = NULL;
