@@ -60,7 +60,6 @@ void on_dns(dns_response_t *dns) {
         }
 
         if (SERVER_DNS.dns_1 != NULL && dns->dns_address == SERVER_DNS.dns_1) {
-            put_log(LOG_INFO,"여기 들감");
             int status = send_dns_query(loop, dns->hostname, SERVER_DNS.dns_2, 1, *dns, on_dns);
             if (status != 1) {
                 put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, Code: %d\n", client->host, status);
@@ -94,49 +93,54 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         return;
     }
 
-    // 프록시 처음 연결인지 확인
-    int is_connect = is_connect_request(buf->base);
-    // 프록시 연결이 아닌 이상한 패킷 처리
-    if (!is_connect && client->state == 0) {
-        put_ip_log(LOG_WARNING, client->ClientIP, "허용되지 않는 프로토콜");
-        free(buf->base);
-        uv_close((uv_handle_t *)stream, close_cb);
-        return;
-    }
-
-    if (is_connect) {
-        Header HostHeader = {NULL};
+    // 최초 연결 시
+    if (client->state == 0) {
         char ipaddr[INET6_ADDRSTRLEN];
         HttpRequest parseHeader = parse_http_request(buf->base, buf->len);
+        char *host, *Proxy = NULL;
+        int status;
 
-        if (parseHeader.header_count == 0) {
-            put_ip_log(LOG_WARNING, client->ClientIP, "HTTP 프록시 해더 파싱 실패");
+        if (!parseHeader.state) {
+            put_ip_log(LOG_ERROR, client->ClientIP, "허용되지 않는 연결, HTTP 해더 파싱 실패");
+            free(buf->base);
             return;
         }
 
         for (int i = 0; i < parseHeader.header_count; i++) {
             // 호스트 구하기
             if (strcmp(parseHeader.headers[i].key, "Host") == 0) {
-                HostHeader = parseHeader.headers[i];
-                break;
+                host = parseHeader.headers[i].value;
+            }
+            if (strcmp(parseHeader.headers[i].key, "Proxy-Connection") == 0) {
+                Proxy = parseHeader.headers[i].value;
             }
         }
 
-        if (HostHeader.value == NULL) {
-            put_ip_log(LOG_WARNING, client->ClientIP, "Host 헤더를 찾을 수 없음");
+        if (host == NULL || Proxy == NULL) {
+            put_ip_log(LOG_WARNING, client->ClientIP, "프록시 헤더를 찾을 수 없음");
+            free(buf->base);
             return;
         }
 
-        URL addr = parseURL(HostHeader.value);
-
+        URL addr = parseURL(host);
         put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", addr.url);
         client->host = strdup(addr.url);
 
-        int status;
         dns_response_t dns = {0};
         dns.clientStream = stream;
         dns.port = atoi(addr.port);
         dns.hostname = strdup(addr.url);
+
+        if (strcmp(parseHeader.method, "CONNECT") == 0) {
+            // HTTPS 연결
+            client->connect_mode = PROXY_HTTPS;
+        } else {
+            // HTTP 연결
+            char *send_buf = (char *)malloc(nread);
+            memcpy(send_buf, buf->base, nread);
+            client->connect_mode = PROXY_HTTP;
+            client->send_buf = uv_buf_init(send_buf, nread);
+        }
 
         if (!is_ip(addr.url)) {
             // 기본 DNS 서버 사용
@@ -163,18 +167,8 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         freeURL(&addr);
         freeHeader(&parseHeader);
     }
-    // 프록시 Respose 이후 클라이언트에 http 연결
+    // HTTPS에 경우 Connection Established 패킷을 받은 경우 이후 실제 TLS 패킷을 보냄
     else {
-        /*         if (is_clientHello(buf->base, nread)) {
-                    resultSNI encryptSNI = encrypt_sni_from_client_hello(buf->base, nread);
-                    printf("해싱 이전: %s\n", encryptSNI.beforeSNI);
-                    printf("해싱 이후: %s\n", encryptSNI.afterSNI);
-                    sendTargetServer(stream, encryptSNI.result_buf, nread);
-                    free_resultSNI(&encryptSNI);
-                } else {
-                    sendTargetServer(stream, buf->base, nread);
-                }
-        */
         sendTargetServer(stream, buf->base, nread);
     }
 
@@ -219,7 +213,6 @@ int main(int argc, char *argv[]) {
                         put_log(LOG_ERROR, "잘못된 DNS 주소");
                         return 1;
                     }
-
                 }
                 break;
             case 'p':

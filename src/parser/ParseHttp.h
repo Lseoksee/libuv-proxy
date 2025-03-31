@@ -13,6 +13,7 @@ typedef struct {
 } Header;
 
 typedef struct {
+    int state;
     char method[16];
     char url[256];
     char version[16];

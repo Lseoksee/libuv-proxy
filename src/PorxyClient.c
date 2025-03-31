@@ -1,10 +1,11 @@
 #include "Global.h"
 #include "PorxyClient.h"
+
 #include "ServerLog.h"
 
 uv_loop_t *mainLoop = NULL;
 
-/** 타겟 서버 연결 완료시 보내는 패킷 */
+/** HTTPS 용 타겟 서버 연결 완료시 보내는 패킷 */
 const char *established = "HTTP/1.1 200 Connection Established\r\n\r\n";
 
 void init_PorxyClient(uv_loop_t *loop) { mainLoop = loop; }
@@ -54,19 +55,25 @@ void on_connect_porxy(uv_connect_t *req, int status) {
 
     uv_read_start(client->targetClient, alloc_buffer, read_data_porxy);
 
-    // 성공적으로 대상 서버에 연결을 하면 프록시 서버에 연결된 클라이언트에 Established 응답을 보냄
-    // strdup을 쓰는 이유는 on_write_porxy에서 메모리를 free 시키는데 established는 스택 영역에 선언된 상수라서 free 시키면 오류가 발생함
-    uv_buf_t resBuffer = uv_buf_init(strdup(established), strlen(established));
+    uv_buf_t resBuffer;
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
-    write_req->data = resBuffer.base;
-
-    uv_write(write_req, client->proxyClient, &resBuffer, 1, on_write);
+    if (client->connect_mode == PROXY_HTTPS) {
+        // 성공적으로 대상 서버에 연결을 하면 프록시 서버에 연결된 클라이언트에 Established 응답을 보냄
+        // strdup을 쓰는 이유는 on_write_porxy에서 메모리를 free 시키는데 established는 스택 영역에 선언된 상수라서 free 시키면 오류가 발생함
+        resBuffer = uv_buf_init(strdup(established), strlen(established));
+        write_req->data = resBuffer.base;
+        uv_write(write_req, client->proxyClient, &resBuffer, 1, on_write);
+    } else if (client->connect_mode == PROXY_HTTP) {
+        resBuffer = client->send_buf;
+        write_req->data = resBuffer.base;
+        uv_write(write_req, client->targetClient, &resBuffer, 1, on_write);
+    }
 }
 
 void sendTargetServer(uv_stream_t *clientStream, const char *buf, ssize_t nread) {
     Client *client = (Client *)clientStream->data;
-    //TODO: 타겟 서버가 종료가 되었는데, 문제는 비동기 특성으로 인해 sendTargetServer가 먼저 호출되고
-    // uv_is_closing() 함수가 실행 한 도중에 targetClient가 메모리에서 free되면 Segmentation fault 애러가 발생함
+    // TODO: 타겟 서버가 종료가 되었는데, 문제는 비동기 특성으로 인해 sendTargetServer가 먼저 호출되고
+    //  uv_is_closing() 함수가 실행 한 도중에 targetClient가 메모리에서 free되면 Segmentation fault 애러가 발생함
     if (client->proxyClient == NULL || uv_is_closing((uv_handle_t *)client->targetClient)) {
         return;
     }

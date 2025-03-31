@@ -8,6 +8,11 @@
 #include <signal.h>
 #include <time.h>
 
+typedef enum {
+    PROXY_HTTPS,
+    PROXY_HTTP,
+} ProxyMode;
+
 typedef struct {
     /** 클라이언트 상태
      * `0`: 최초 연결
@@ -20,6 +25,9 @@ typedef struct {
     uv_stream_t *proxyClient;
     char *host;
     char ClientIP[INET6_ADDRSTRLEN];
+    ProxyMode connect_mode;
+    /** HTTP 전송용 버퍼  */
+    uv_buf_t send_buf;
 } Client;
 
 typedef struct {

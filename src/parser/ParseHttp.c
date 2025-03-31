@@ -28,6 +28,7 @@ HttpRequest parse_http_request(const char *raw_request, int len) {
         req.headers[req.header_count].value = strdup(value);
         req.header_count++;
     }
+    req.state = 1;
 
     return req;
 }
@@ -42,10 +43,17 @@ URL parseURL(const char *hostURL) {
     //\0 은 C언어가 문장에 끝을 파악하는 기호인데 이를 이용하여 문자열을 나누는 것이다.
     // 그럼 hostURL은 : 이전, colon+1은 : 이후
     char *colon = strchr(temp, ':');
-    *colon = '\0';
+    
+    //HTTP 인 경우 포트번호를 포함하지 않음
+    if (colon == NULL) {
+        res.url = temp;
+        res.port = "80";
+    } else {
+        *colon = '\0';
+        res.url = temp;
+        res.port = colon + 1;
+    }
 
-    res.url = temp;
-    res.port = colon + 1;
     return res;
 }
 
