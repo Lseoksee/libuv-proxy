@@ -112,7 +112,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         addr_p = &addr;
         parseHeader_p = &parseHeader;
         char ipaddr[INET6_ADDRSTRLEN];
-        char *host, *Proxy = NULL;
+        char *host = NULL;
         int status;
 
         parseHeader = parse_http_request(buf->base, buf->len);
@@ -129,38 +129,37 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             // 호스트 구하기
             if (strcmp(parseHeader.headers[i].key, "Host") == 0) {
                 host = parseHeader.headers[i].value;
-            }
-            if (strcmp(parseHeader.headers[i].key, "Proxy-Connection") == 0) {
-                Proxy = parseHeader.headers[i].value;
+                break;
             }
         }
 
-        if (host == NULL || Proxy == NULL) {
+        if (host == NULL) {
             put_ip_log(LOG_ERROR, client->ClientIP, "프록시 헤더를 찾을 수 없음");
             freeHeader(parseHeader_p);
             free(buf->base);
             uv_close((uv_handle_t *)stream, close_cb);
             return;
-        }
-
-        addr = parseURL(host);
-        put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", addr.url);
-        client->host = strdup(addr.url);
-
-        dns.clientStream = stream;
-        dns.port = atoi(addr.port);
-        dns.hostname = strdup(addr.url);
+        }        
 
         if (strcmp(parseHeader.method, "CONNECT") == 0) {
             // HTTPS 연결
+            addr = parseURL(parseHeader.url);
             client->connect_mode = PROXY_HTTPS;
         } else {
             // HTTP 연결
+            addr = parseURL(host);
             char *send_buf = (char *)malloc(nread);
             memcpy(send_buf, buf->base, nread);
             client->connect_mode = PROXY_HTTP;
             client->send_buf = uv_buf_init(send_buf, nread);
         }
+
+        client->host = strdup(addr.url);
+        put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", addr.url);
+
+        dns.clientStream = stream;
+        dns.port = atoi(addr.port);
+        dns.hostname = strdup(addr.url);
 
         if (!is_ip(addr.url)) {
             // 기본 DNS 서버 사용

@@ -15,6 +15,7 @@ typedef struct {
 typedef struct {
     int state;
     char method[16];
+    /** root url 주소는 최대 253자 */
     char url[256];
     char version[16];
     Header headers[MAX_HEADERS];
