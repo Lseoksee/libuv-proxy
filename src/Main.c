@@ -45,40 +45,38 @@ void parse_dns(char *original) {
 }
 
 void on_dns(dns_response_t *dns) {
-    Client *client = (Client *)dns->clientStream->data;
+    Client *client = dns->client_data;
+    dns_response_s res = dns->dns_response;
 
-    if (dns->status == 1) {
-        ConnectTargetServer(dns->ip_address, dns->port, client);
+    //TODO: client에 메모리 해제시 대응 필요
+    if (res.status == 1) {
+        ConnectTargetServer(res.ip_address, atoi(res.port), client);
+        put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", res.hostname);
         client->state = 1;
+        return;
     } else {
-        if (dns->status == -1) {
-            put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, 타임아웃", dns->hostname);
-        } else if (dns->status == -2) {
-            put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, 해당 호스트를 찾을 수 없음", dns->hostname);
-        } else {
-            put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, 알 수 없는 오류", dns->hostname);
-        }
-
-        // 보조 DNS 주소로 다시 시도
-        if (SERVER_DNS.dns_1 != NULL && dns->dns_address == SERVER_DNS.dns_1) {
-            int status = send_dns_query(loop, dns->hostname, SERVER_DNS.dns_2, 1, *dns, on_dns);
-            if (status != 1) {
-                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, Code: %d\n", client->host, status);
-                free_dns(dns);
+        // 실행 인자 dns 주소 인경우
+        if (SERVER_DNS.dns_1 != NULL) {
+            if (res.status == -1) {
+                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, DNS 주소: %s, 타임아웃", res.hostname, res.dns_address);
+            } else if (res.status == -2) {
+                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, DNS 주소: %s, 해당 호스트를 찾을 수 없음", res.hostname, res.dns_address);
+            } else {
+                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, DNS 주소: %s, 알 수 없는 오류", res.hostname, res.dns_address);
             }
-            return;
-        }
-        // 보조 DNS 까지 먹통이면 연결 종료
-        else if (SERVER_DNS.dns_1 != NULL && dns->dns_address == SERVER_DNS.dns_2) {
-            if (client->proxyClient != NULL || !uv_is_closing((uv_handle_t *)client->proxyClient)) {
-                uv_close((uv_handle_t *)client->proxyClient, close_cb);
+
+            // 보조 DNS 주소로 다시 시도
+            if (res.dns_address == SERVER_DNS.dns_1 && SERVER_DNS.dns_2 != NULL) {
+                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 주소 %s 로 재시도", res.hostname, SERVER_DNS.dns_2);
+                int status = send_dns_query(loop, res.hostname, res.port, SERVER_DNS.dns_2, 1, client, on_dns);
+                if (status == 1) {
+                    return;
+                }
             }
         }
     }
 
-    if (dns->req != 0) {
-        free_dns(dns);
-    }
+    put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 서버에서 도메인을 찾을 수 없음, Code: %d", res.hostname, res.status);
 }
 
 /** 클라이언트 데이터 읽기 */
@@ -139,7 +137,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             free(buf->base);
             uv_close((uv_handle_t *)stream, close_cb);
             return;
-        }        
+        }
 
         if (strcmp(parseHeader.method, "CONNECT") == 0) {
             // HTTPS 연결
@@ -155,31 +153,20 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         }
 
         client->host = strdup(addr.url);
-        put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", addr.url);
-
-        dns.clientStream = stream;
-        dns.port = atoi(addr.port);
-        dns.hostname = strdup(addr.url);
 
         if (!is_ip(addr.url)) {
             // 기본 DNS 서버 사용
             if (SERVER_DNS.dns_1 == NULL) {
-                status = send_default_dns(loop, addr.url, addr.port, &dns);
-                if (status == 1) {
-                    on_dns(&dns);
-                } else {
-                    put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, Code: %d", client->host, status);
-                    uv_close((uv_handle_t *)stream, close_cb);
-                }
+                status = send_default_dns(loop, addr.url, addr.port, client, on_dns);
             }
             // 실행 인자 DNS 서버 사용
             else {
-                status = send_dns_query(loop, addr.url, SERVER_DNS.dns_1, 1, dns, on_dns);
-                if (status != 1) {
-                    put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, Code: %d", client->host, status);
-                    free_dns(&dns);
-                    uv_close((uv_handle_t *)stream, close_cb);
-                }
+                status = send_dns_query(loop, addr.url, addr.port, SERVER_DNS.dns_1, 1, client, on_dns);
+            }
+
+            if (status != 1) {
+                put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 요청 쿼리 전송 실패, Code: %d", client->host, status);
+                uv_close((uv_handle_t *)stream, close_cb);
             }
         } else {
             on_dns(&dns);
@@ -205,13 +192,14 @@ void on_new_connection(uv_stream_t *server, int status) {
     uv_tcp_init(loop, client);
     if (uv_accept(server, (uv_stream_t *)client) == 0) {
         Client *client_data = Create_client();
-        client_data->proxyClient = (uv_stream_t *) client;
+        client_data->proxyClient = (uv_stream_t *)client;
         client->data = client_data;
 
         get_client_ip((uv_stream_t *)client, client_data->ClientIP, sizeof(client_data->ClientIP));
         uv_read_start((uv_stream_t *)client, alloc_buffer, read_data);
         put_ip_log(LOG_INFO, client_data->ClientIP, "프록시 연결 완료");
     } else {
+        put_time_log(LOG_ERROR, "프록시 연결오류: accept 실패");
         uv_close((uv_handle_t *)client, close_cb);
     }
 }
@@ -261,6 +249,7 @@ int main(int argc, char *argv[]) {
     uv_tcp_bind(&server, (const struct sockaddr *)&addr, 0);
     int r = uv_listen((uv_stream_t *)&server, DEFAULT_BACKLOG, on_new_connection);
     if (r) {
+        put_log(LOG_ERROR, "%d 포트가 사용중인거 같음", SERVER_PORT);
         return 1;
     }
 

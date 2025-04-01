@@ -1,8 +1,10 @@
 #include "Global.h"
 #include "SendDNS.h"
 
-int send_default_dns(uv_loop_t* loop, const char* host, const char* port, dns_response_t* dns_res) {
+int send_default_dns(uv_loop_t* loop, char* hostname, const char* port, Client* client, dns_query_cb cb) {
     uv_getaddrinfo_t res;
+    dns_response_t dns_res = {0};
+    dns_res.client_data = client;
 
     struct addrinfo hints;
     hints.ai_family = AF_INET;
@@ -10,7 +12,7 @@ int send_default_dns(uv_loop_t* loop, const char* host, const char* port, dns_re
     hints.ai_protocol = IPPROTO_TCP;
     hints.ai_flags = 0;
 
-    int status = uv_getaddrinfo(loop, &res, NULL, host, port, &hints);
+    int status = uv_getaddrinfo(loop, &res, NULL, hostname, port, &hints);
     if (status != 0) {
         return -1;
     }
@@ -22,14 +24,20 @@ int send_default_dns(uv_loop_t* loop, const char* host, const char* port, dns_re
     addr_ptr = &(ipv4->sin_addr);
     inet_ntop(res.addrinfo->ai_family, addr_ptr, addr, sizeof(addr));
 
-    strcpy_s(dns_res->ip_address, INET_ADDRSTRLEN, addr);
-
+    strcpy_s(dns_res.dns_response.ip_address, INET_ADDRSTRLEN, addr);
     uv_freeaddrinfo(res.addrinfo);
-    dns_res->status = 1;
+
+    dns_res.dns_response.status = 1;
+    dns_res.dns_response.hostname = strdup(hostname);
+    dns_res.dns_response.port = strdup(port);
+    cb(&dns_res);
+
+    free(dns_res.dns_response.hostname);
+    free(dns_res.dns_response.port);
     return 1;
 }
 
-// DNS 패킷 생성 함수 (간단한 버전)
+// DNS 패킷 생성
 void create_dns_query(const char* hostname, int query_type, unsigned char* buffer, int* length) {
     // DNS 헤더 (12바이트)
     // ID (16비트)
@@ -91,8 +99,21 @@ void create_dns_query(const char* hostname, int query_type, unsigned char* buffe
     *length = pos;
 }
 
-void on_close(uv_handle_t* handle) {
-    free(handle->data);
+void on_dns_close(uv_handle_t* handle) {
+    dns_request_t* req = (dns_request_t*)handle->data;
+    if (handle == (uv_handle_t*)&(req->udp_handle.handle)) {
+        req->udp_handle.state = -1;
+    } else if (handle == (uv_handle_t*)&(req->timeout_timer.timer)) {
+        req->timeout_timer.state = -1;
+    }
+
+    if (req->udp_handle.state == -1 && req->timeout_timer.state == -1) {
+        req->udp_handle.handle.data = NULL;
+        req->timeout_timer.timer.data = NULL;
+        free(req->res.dns_response.hostname);
+        free(req->res.dns_response.port);
+        free(req);
+    }
 }
 
 // UDP 메시지 수신 콜백
@@ -180,20 +201,20 @@ void on_udp_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const str
 
                 // RDATA 필드 (IP 주소)
                 if (ip_type == 1 && ip_length == 4) {  // A 레코드 (IPv4)
-                    sprintf(req->res.ip_address, "%d.%d.%d.%d", ptr[0], ptr[1], ptr[2], ptr[3]);
+                    sprintf(req->res.dns_response.ip_address, "%d.%d.%d.%d", ptr[0], ptr[1], ptr[2], ptr[3]);
                 } else if (ip_type == 28 && ip_length == 16) {  // AAAA 레코드 (IPv6)
-                    sprintf(req->res.ip_address, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5], ptr[6], ptr[7], ptr[8],
-                            ptr[9], ptr[10], ptr[11], ptr[12], ptr[13], ptr[14], ptr[15]);
+                    sprintf(req->res.dns_response.ip_address, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5], ptr[6], ptr[7],
+                            ptr[8], ptr[9], ptr[10], ptr[11], ptr[12], ptr[13], ptr[14], ptr[15]);
                 }
             } else {
-                req->res.status = -2;
+                req->res.dns_response.status = -2;
             }
 
             // 타이머 정지 및 핸들 닫기
-            uv_timer_stop(&req->timeout_timer);
-            uv_close((uv_handle_t*)&req->udp_handle, NULL);
-            uv_close((uv_handle_t*)&req->timeout_timer, on_close);
+            uv_timer_stop(&req->timeout_timer.timer);
             req->cb(&req->res);
+            uv_close((uv_handle_t*)&req->udp_handle.handle, on_dns_close);
+            uv_close((uv_handle_t*)&req->timeout_timer.timer, on_dns_close);
         }
     }
 
@@ -204,20 +225,20 @@ void on_udp_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const str
 void on_timeout(uv_timer_t* timer) {
     dns_request_t* req = (dns_request_t*)timer->data;
 
-    // 핸들 닫기
-    uv_close((uv_handle_t*)&req->udp_handle, NULL);
-    uv_close((uv_handle_t*)&req->timeout_timer, NULL);
-
     if (req != NULL) {
-        req->res.status = -1;
+        req->res.dns_response.status = -1;
         req->cb(&req->res);
     }
+
+    // 핸들 닫기
+    uv_close((uv_handle_t*)&req->udp_handle.handle, on_dns_close);
+    uv_close((uv_handle_t*)&req->timeout_timer.timer, on_dns_close);
 }
 
 // UDP 전송 콜백
 void on_udp_send(uv_udp_send_t* req, int status) { free(req); }
 
-int send_dns_query(uv_loop_t* loop, char* hostname, char* dns_server, int query_type, dns_response_t res, dns_query_cb cb) {
+int send_dns_query(uv_loop_t* loop, char* hostname, char* port, char* dns_server, int query_type, Client* client, dns_query_cb cb) {
     struct sockaddr_in dns_addr;
     int r;
 
@@ -229,46 +250,48 @@ int send_dns_query(uv_loop_t* loop, char* hostname, char* dns_server, int query_
 
     // DNS 요청 객체 초기화
     dns_request_t* req = (dns_request_t*)malloc(sizeof(dns_request_t));
+    memset(req, 0, sizeof(dns_request_t));
     req->query_type = query_type;
-    req->res = res;
     req->cb = cb;
-    req->res.status = 1;
-    req->res.req = req;
-    req->res.dns_address = dns_server;
+    req->res.client_data = client;
+    req->res.dns_response.dns_address = dns_server;
+    req->res.dns_response.status = 1;
+    req->res.dns_response.hostname = strdup(hostname);
+    req->res.dns_response.port = strdup(port);
 
     // UDP 핸들 초기화
-    uv_udp_init(loop, &req->udp_handle);
-    uv_timer_init(loop, &req->timeout_timer);
+    uv_udp_init(loop, &req->udp_handle.handle);
+    uv_timer_init(loop, &req->timeout_timer.timer);
 
     // 콘텍스트 데이터 설정
-    req->udp_handle.data = req;
-    req->timeout_timer.data = req;
+    req->udp_handle.handle.data = req;
+    req->timeout_timer.timer.data = req;
 
     // UDP 소켓 바인딩
     struct sockaddr_in any_addr;
     uv_ip4_addr("0.0.0.0", 0, &any_addr);
-    r = uv_udp_bind(&req->udp_handle, (const struct sockaddr*)&any_addr, 0);
+    r = uv_udp_bind(&req->udp_handle.handle, (const struct sockaddr*)&any_addr, 0);
     if (r) {
-        uv_close((uv_handle_t*)&req->udp_handle, NULL);
-        uv_close((uv_handle_t*)&req->timeout_timer, NULL);
+        uv_close((uv_handle_t*)&req->udp_handle.handle, on_dns_close);
+        uv_close((uv_handle_t*)&req->timeout_timer.timer, on_dns_close);
         return -2;
     }
 
     // UDP 수신 시작
-    r = uv_udp_recv_start(&req->udp_handle, alloc_buffer, on_udp_read);
+    r = uv_udp_recv_start(&req->udp_handle.handle, alloc_buffer, on_udp_read);
     if (r) {
-        uv_close((uv_handle_t*)&req->udp_handle, NULL);
-        uv_close((uv_handle_t*)&req->timeout_timer, NULL);
+        uv_close((uv_handle_t*)&req->udp_handle.handle, on_dns_close);
+        uv_close((uv_handle_t*)&req->timeout_timer.timer, on_dns_close);
         return -3;
     }
 
-    // 타임아웃 타이머 시작 (5초)
-    uv_timer_start(&req->timeout_timer, on_timeout, 3000, 0);
+    // 타임아웃 타이머 시작
+    uv_timer_start(&req->timeout_timer.timer, on_timeout, 3000, 0);
 
     // DNS 쿼리 패킷 생성
     unsigned char dns_packet[512];  // DNS 패킷 최대 크기
     int packet_length;
-    create_dns_query(hostname, query_type, dns_packet, &packet_length);
+    create_dns_query(req->res.dns_response.hostname, query_type, dns_packet, &packet_length);
 
     // 전송 요청 구조체 할당
     uv_udp_send_t* send_req = malloc(sizeof(uv_udp_send_t));
@@ -277,20 +300,15 @@ int send_dns_query(uv_loop_t* loop, char* hostname, char* dns_server, int query_
     uv_buf_t send_buf = uv_buf_init((char*)dns_packet, packet_length);
 
     // DNS 쿼리 전송
-    r = uv_udp_send(send_req, &req->udp_handle, &send_buf, 1, (const struct sockaddr*)&dns_addr, on_udp_send);
+    r = uv_udp_send(send_req, &req->udp_handle.handle, &send_buf, 1, (const struct sockaddr*)&dns_addr, on_udp_send);
     if (r) {
         free(send_req);
-        uv_udp_recv_stop(&req->udp_handle);
-        uv_timer_stop(&req->timeout_timer);
-        uv_close((uv_handle_t*)&req->udp_handle, NULL);
-        uv_close((uv_handle_t*)&req->timeout_timer, NULL);
+        uv_udp_recv_stop(&req->udp_handle.handle);
+        uv_timer_stop(&req->timeout_timer.timer);
+        uv_close((uv_handle_t*)&req->udp_handle.handle, on_dns_close);
+        uv_close((uv_handle_t*)&req->timeout_timer.timer, on_dns_close);
         return -4;
     }
 
     return 1;
-}
-
-void free_dns(dns_response_t* res) {
-    free(res->hostname);
-    res->hostname = NULL;
 }
