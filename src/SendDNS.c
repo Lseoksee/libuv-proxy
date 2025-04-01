@@ -91,6 +91,10 @@ void create_dns_query(const char* hostname, int query_type, unsigned char* buffe
     *length = pos;
 }
 
+void on_close(uv_handle_t* handle) {
+    free(handle->data);
+}
+
 // UDP 메시지 수신 콜백
 void on_udp_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags) {
     if (nread < 0) {
@@ -188,7 +192,7 @@ void on_udp_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const str
             // 타이머 정지 및 핸들 닫기
             uv_timer_stop(&req->timeout_timer);
             uv_close((uv_handle_t*)&req->udp_handle, NULL);
-            uv_close((uv_handle_t*)&req->timeout_timer, NULL);
+            uv_close((uv_handle_t*)&req->timeout_timer, on_close);
             req->cb(&req->res);
         }
     }

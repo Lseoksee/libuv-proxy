@@ -7,4 +7,4 @@ void init_PorxyClient(uv_loop_t *mainLoop);
 void sendTargetServer(uv_stream_t *clientStream, const char*buf, ssize_t nread);
 
 /** 타겟 서버에 연결 시도 */
-void ConnectTargetServer(char *addr, int port, uv_stream_t *clientStream);
+void ConnectTargetServer(char *addr, int port, Client *client);

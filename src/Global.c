@@ -26,6 +26,7 @@ void close_cb(uv_handle_t *handle) {
     client->host = NULL;
 
     if (client->proxyClient == NULL && client->targetClient == NULL) {
+        free(client->target_connecter);
         free(client);
         client = NULL;
     }

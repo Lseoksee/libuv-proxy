@@ -19,15 +19,21 @@ typedef struct {
      * `1`: 프록시 연결 완료 후 데이터 교환
      */
     int state;
-    /** 프록시 서버가 대상 서버에 연결하기 위한 클라이언트 (즉 요청을 위한) */
+    /** 프록시 서버가 대상 서버에 연결하기 위한 클라이언트 (즉 요청을 위한)
+     * uv_stream_t == uv_tcp_t
+     */
     uv_stream_t *targetClient;
-    /** 프록시 서버에 접속하는 클라이언트 (즉 응답을 위한) */
+    /** 프록시 서버에 접속하는 클라이언트 (즉 응답을 위한) 
+     * uv_stream_t == uv_tcp_t
+    */
     uv_stream_t *proxyClient;
     char *host;
     char ClientIP[INET6_ADDRSTRLEN];
     ProxyMode connect_mode;
     /** HTTP 전송용 버퍼  */
     uv_buf_t send_buf;
+    /** 메모리 할당 헤제용 */
+    uv_connect_t *target_connecter;
 } Client;
 
 typedef struct {

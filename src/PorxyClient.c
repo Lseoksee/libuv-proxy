@@ -90,18 +90,17 @@ void sendTargetServer(uv_stream_t *clientStream, const char *buf, ssize_t nread)
     uv_write(write_req, client->targetClient, &resBuffer, 1, on_write);
 }
 
-void ConnectTargetServer(char *addr, int port, uv_stream_t *clientStream) {
+void ConnectTargetServer(char *addr, int port, Client *client) {
     struct sockaddr_in dest;
-    Client *client = (Client *)clientStream->data;
 
     uv_tcp_t *ClientHandle = (uv_tcp_t *)malloc(sizeof(uv_tcp_t));
-    uv_connect_t *connecter = malloc(sizeof(uv_connect_t));
+    uv_connect_t *connecter = (uv_connect_t*) malloc(sizeof(uv_connect_t));
 
     uv_tcp_init(mainLoop, ClientHandle);
     uv_ip4_addr(addr, port, &dest);
     uv_tcp_connect(connecter, ClientHandle, (const struct sockaddr *)&dest, on_connect_porxy);
 
-    client->proxyClient = clientStream;
+    client->target_connecter = connecter;
     client->targetClient = connecter->handle;
 
     // INFO: uv_stream_t의 data는 개발자가 직접 할당 할 수 있다. 이를 이용해서 생성한 client 구조체를 보관한다

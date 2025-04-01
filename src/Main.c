@@ -48,7 +48,7 @@ void on_dns(dns_response_t *dns) {
     Client *client = (Client *)dns->clientStream->data;
 
     if (dns->status == 1) {
-        ConnectTargetServer(dns->ip_address, dns->port, dns->clientStream);
+        ConnectTargetServer(dns->ip_address, dns->port, client);
         client->state = 1;
     } else {
         if (dns->status == -1) {
@@ -70,7 +70,9 @@ void on_dns(dns_response_t *dns) {
         }
         // 보조 DNS 까지 먹통이면 연결 종료
         else if (SERVER_DNS.dns_1 != NULL && dns->dns_address == SERVER_DNS.dns_2) {
-            uv_close((uv_handle_t *)client->proxyClient, close_cb);
+            if (client->proxyClient != NULL || !uv_is_closing((uv_handle_t *)client->proxyClient)) {
+                uv_close((uv_handle_t *)client->proxyClient, close_cb);
+            }
         }
     }
 
@@ -119,7 +121,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             put_ip_log(LOG_ERROR, client->ClientIP, "허용되지 않는 연결, HTTP 해더 파싱 실패");
             freeHeader(parseHeader_p);
             free(buf->base);
-            uv_close((uv_handle_t *)client->proxyClient, close_cb);
+            uv_close((uv_handle_t *)stream, close_cb);
             return;
         }
 
@@ -137,7 +139,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             put_ip_log(LOG_ERROR, client->ClientIP, "프록시 헤더를 찾을 수 없음");
             freeHeader(parseHeader_p);
             free(buf->base);
-            uv_close((uv_handle_t *)client->proxyClient, close_cb);
+            uv_close((uv_handle_t *)stream, close_cb);
             return;
         }
 
@@ -204,7 +206,9 @@ void on_new_connection(uv_stream_t *server, int status) {
     uv_tcp_init(loop, client);
     if (uv_accept(server, (uv_stream_t *)client) == 0) {
         Client *client_data = Create_client();
+        client_data->proxyClient = (uv_stream_t *) client;
         client->data = client_data;
+
         get_client_ip((uv_stream_t *)client, client_data->ClientIP, sizeof(client_data->ClientIP));
         uv_read_start((uv_stream_t *)client, alloc_buffer, read_data);
         put_ip_log(LOG_INFO, client_data->ClientIP, "프록시 연결 완료");
