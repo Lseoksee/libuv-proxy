@@ -12,11 +12,19 @@ add_executable(K-WarningBypass ${SOURCES})
 add_subdirectory(src)
 
 # 실행파일에 help.txt 파일 포함하기
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/res/help.txt
-    ${CMAKE_CURRENT_BINARY_DIR}/help.txt
-    COPYONLY
-)
+if($ENV{charset} STREQUAL "UTF-8")
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/help.txt
+        ${CMAKE_CURRENT_BINARY_DIR}/help.txt
+        COPYONLY
+    )
+elseif($ENV{charset} STREQUAL "EUC-KR")
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/help_euc-kr.txt
+        ${CMAKE_CURRENT_BINARY_DIR}/help.txt
+        COPYONLY
+    )
+endif()
 set_target_properties(K-WarningBypass PROPERTIES 
     COMPILE_DEFINITIONS "DATA_FILE=\"${CMAKE_CURRENT_BINARY_DIR}/help.txt\""
 )
