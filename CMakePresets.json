@@ -1,5 +1,9 @@
 {
     "version": 8,
+    "buildPresets": [
+        {"name": "Debug-Mingw-x64", "configurePreset": "Debug-Mingw-x64"},
+        {"name": "Release-Mingw-x64", "configurePreset": "Release-Mingw-x64"}
+    ],
     "configurePresets": [
         {
             "name": "Debug-Mingw-x64",
