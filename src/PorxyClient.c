@@ -46,7 +46,7 @@ void on_connect_porxy(uv_connect_t *req, int status) {
     Client *client = (Client *)req->handle->data;
 
     if (status < 0) {
-        put_ip_log(LOG_WARNING, client->ClientIP, "타겟 서버 연결 오류, Code: %s", uv_strerror(status));
+        put_ip_log(LOG_WARNING, client->ClientIP, "%s 서버측 연결 오류, Code: %s", client->host, uv_strerror(status));
         uv_close((uv_handle_t *)req->handle, close_cb);
         return;
     }

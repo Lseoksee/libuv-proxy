@@ -54,7 +54,6 @@ void on_dns(dns_response_t *dns) {
         return;
     }
 
-    // TODO: client에 메모리 해제시 대응 필요
     if (res.status == 1) {
         // ConnectTargetServer측
         ref_client(client);
@@ -167,6 +166,8 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         }
 
         client->host = strdup(addr.url);
+        // DNS 콜백 client 대기를 위한
+        ref_client(client);
 
         if (!is_ip(addr.url)) {
             // 기본 DNS 서버 사용
@@ -180,13 +181,12 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
             if (status != 1) {
                 put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 요청 쿼리 전송 실패, Code: %d", client->host, status);
+                unref_client(client);
                 uv_close((uv_handle_t *)stream, close_cb);
-            } else {
-                // DNS 콜백 client 대기를 위한
-                ref_client(client);
             }
         } else {
-            on_dns(&dns);
+            ConnectTargetServer(addr.url, atoi(addr.port), client);
+            put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", addr.url);
         }
     }
     // HTTPS에 경우 Connection Established 패킷을 받은 경우 이후 실제 TLS 패킷을 보냄
