@@ -38,7 +38,12 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     uv_buf_t resBuffer = uv_buf_init(buf->base, nread);
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
     write_req->data = resBuffer.base;
-    uv_write(write_req, client->proxyClient, &resBuffer, 1, on_write);
+    int state = uv_write(write_req, client->proxyClient, &resBuffer, 1, on_write);
+    if (state) {
+        put_ip_log(LOG_ERROR, client->ClientIP, "%s 클라이언트 측에 데이터 전송 실패, Code: %s", client->host, uv_strerror(state));
+        free(write_req->data);
+        free(write_req);
+    }
 }
 
 // 타겟 서버 연결 완료
@@ -59,16 +64,23 @@ void on_connect_porxy(uv_connect_t *req, int status) {
 
     uv_buf_t resBuffer;
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
+    int state;
     if (client->connect_mode == PROXY_HTTPS) {
         // 성공적으로 대상 서버에 연결을 하면 프록시 서버에 연결된 클라이언트에 Established 응답을 보냄
         // strdup을 쓰는 이유는 on_write_porxy에서 메모리를 free 시키는데 established는 스택 영역에 선언된 상수라서 free 시키면 오류가 발생함
         resBuffer = uv_buf_init(strdup(established), strlen(established));
         write_req->data = resBuffer.base;
-        uv_write(write_req, client->proxyClient, &resBuffer, 1, on_write);
+        state = uv_write(write_req, client->proxyClient, &resBuffer, 1, on_write);
     } else if (client->connect_mode == PROXY_HTTP) {
         resBuffer = client->send_buf;
         write_req->data = resBuffer.base;
-        uv_write(write_req, client->targetClient, &resBuffer, 1, on_write);
+        state = uv_write(write_req, client->targetClient, &resBuffer, 1, on_write);
+    }
+
+    if (state) {
+        put_ip_log(LOG_ERROR, client->ClientIP, "%s 서버 측에 데이터 전송 실패, Code: %s", client->host, uv_strerror(state));
+        free(write_req->data);
+        free(write_req);
     }
 }
 
@@ -89,22 +101,34 @@ void sendTargetServer(uv_stream_t *clientStream, const char *buf, ssize_t nread)
     // 프록시 서버에 연결된 클라이언트의 요청을 대상 서버에 전달
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
     write_req->data = resBuffer.base;
-    uv_write(write_req, client->targetClient, &resBuffer, 1, on_write);
+    int state = uv_write(write_req, client->targetClient, &resBuffer, 1, on_write);
+    if (state) {
+        put_ip_log(LOG_ERROR, client->ClientIP, "%s 서버 측에 데이터 전송 실패, Code: %s", client->host, uv_strerror(state));
+        free(write_req->data);
+        free(write_req);
+    }
 }
 
-void ConnectTargetServer(char *addr, int port, Client *client) {
+int ConnectTargetServer(char *addr, int port, Client *client) {
     struct sockaddr_in dest;
 
     uv_tcp_t *ClientHandle = (uv_tcp_t *)malloc(sizeof(uv_tcp_t));
     uv_connect_t *connecter = (uv_connect_t *)malloc(sizeof(uv_connect_t));
 
-    uv_tcp_init(mainLoop, ClientHandle);
-    uv_ip4_addr(addr, port, &dest);
-    uv_tcp_connect(connecter, ClientHandle, (const struct sockaddr *)&dest, on_connect_porxy);
+    int state;
+    state = uv_tcp_init(mainLoop, ClientHandle);
+    state = uv_ip4_addr(addr, port, &dest);
+    state = uv_tcp_connect(connecter, ClientHandle, (const struct sockaddr *)&dest, on_connect_porxy);
+    if (state) {
+        free(ClientHandle);
+        free(connecter);
+        return state;
+    }
 
     client->target_connecter = connecter;
     client->targetClient = connecter->handle;
 
     // INFO: uv_stream_t의 data는 개발자가 직접 할당 할 수 있다. 이를 이용해서 생성한 client 구조체를 보관한다
     client->targetClient->data = client;
+    return 0;
 }

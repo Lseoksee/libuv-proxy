@@ -57,7 +57,13 @@ void on_dns(dns_response_t *dns) {
     if (res.status == 1) {
         // ConnectTargetServer측
         ref_client(client);
-        ConnectTargetServer(res.ip_address, atoi(res.port), client);
+        int state = ConnectTargetServer(res.ip_address, atoi(res.port), client);
+        if (state) {
+            put_ip_log(LOG_ERROR, client->ClientIP, "%s 서버에 연결 실패, Code: %s", client->host, uv_strerror(state));
+            unref_client(client);
+            return;
+        }
+
         put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", res.hostname);
         client->state = 1;
         // dns 요청시 rc 감소용
@@ -166,9 +172,9 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         }
 
         client->host = strdup(addr.url);
+
         // DNS 콜백 client 대기를 위한
         ref_client(client);
-
         if (!is_ip(addr.url)) {
             // 기본 DNS 서버 사용
             if (SERVER_DNS.dns_1 == NULL) {
@@ -185,8 +191,13 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
                 uv_close((uv_handle_t *)stream, close_cb);
             }
         } else {
-            ConnectTargetServer(addr.url, atoi(addr.port), client);
-            put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", addr.url);
+            int state = ConnectTargetServer(addr.url, atoi(addr.port), client);
+            if (state) {
+                put_ip_log(LOG_ERROR, client->ClientIP, "%s 서버에 연결 실패, Code: %s", client->host, uv_strerror(state));
+                unref_client(client);
+            } else {
+                put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", addr.url);
+            }
         }
     }
     // HTTPS에 경우 Connection Established 패킷을 받은 경우 이후 실제 TLS 패킷을 보냄
@@ -214,8 +225,13 @@ void on_new_connection(uv_stream_t *server, int status) {
         client->data = client_data;
 
         get_client_ip((uv_stream_t *)client, client_data->ClientIP, sizeof(client_data->ClientIP));
-        uv_read_start((uv_stream_t *)client, alloc_buffer, read_data);
-        put_ip_log(LOG_INFO, client_data->ClientIP, "프록시 연결 완료");
+        int state = uv_read_start((uv_stream_t *)client, alloc_buffer, read_data);
+        if (state) {
+            put_ip_log(LOG_ERROR, client_data->ClientIP, "프록시 연결 실패, Code: %s", uv_strerror(state));
+            uv_close((uv_handle_t *)client, close_cb);
+        } else {
+            put_ip_log(LOG_INFO, client_data->ClientIP, "프록시 연결 완료");
+        }
     } else {
         put_time_log(LOG_ERROR, "프록시 연결오류: accept 실패");
         uv_close((uv_handle_t *)client, close_cb);
