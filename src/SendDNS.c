@@ -24,7 +24,7 @@ int send_default_dns(uv_loop_t* loop, char* hostname, const char* port, Client* 
     addr_ptr = &(ipv4->sin_addr);
     inet_ntop(res.addrinfo->ai_family, addr_ptr, addr, sizeof(addr));
 
-    strcpy_s(dns_res.dns_response.ip_address, INET_ADDRSTRLEN, addr);
+    strcpy(dns_res.dns_response.ip_address, addr);
     uv_freeaddrinfo(res.addrinfo);
 
     dns_res.dns_response.status = 1;

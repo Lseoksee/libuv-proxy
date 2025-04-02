@@ -2,7 +2,8 @@
     "version": 8,
     "buildPresets": [
         {"name": "Debug-Mingw-x64", "configurePreset": "Debug-Mingw-x64"},
-        {"name": "Release-Mingw-x64", "configurePreset": "Release-Mingw-x64"}
+        {"name": "Release-Mingw-x64", "configurePreset": "Release-Mingw-x64"},
+        {"name": "Release-linux", "configurePreset": "Release-linux"}
     ],
     "configurePresets": [
         {
@@ -30,6 +31,20 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "VCPKG_TARGET_TRIPLET": "x64-mingw-static",
                 "CMAKE_C_FLAGS": "-fexec-charset=EUC-KR"
+            }
+        },
+        {
+            "name": "Release-linux",
+            "displayName": "Release-linux",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "/opt/vcpkg/scripts/buildsystems/vcpkg.cmake",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install/${presetName}",
+				"generator": "Unix Makefiles",
+                "CMAKE_MAKE_PROGRAM": "make",
+				"CMAKE_C_COMPILER": "gcc",
+                "CMAKE_BUILD_TYPE": "Release",
+                "VCPKG_TARGET_TRIPLET": "arm64-linux"
             }
         }
     ]

@@ -7,6 +7,10 @@
 #include <getopt.h>
 #include <signal.h>
 #include <time.h>
+/* 리눅스 대응 */
+#ifdef __unix
+    #include <stdarg.h>
+#endif
 
 typedef enum {
     PROXY_HTTPS,
