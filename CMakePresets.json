@@ -2,6 +2,7 @@
     "version": 8,
     "buildPresets": [
         {"name": "Debug-Mingw-x64", "configurePreset": "Debug-Mingw-x64"},
+        {"name": "Debug-linux-gcc", "configurePreset": "Debug-linux-gcc"},
         {"name": "Release-Mingw-x64", "configurePreset": "Release-Mingw-x64"},
         {"name": "Release-linux", "configurePreset": "Release-linux"}
     ],
@@ -17,6 +18,19 @@
                 "CMAKE_C_COMPILER": "gcc",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "VCPKG_TARGET_TRIPLET": "x64-mingw-static"
+            }
+        },
+        {
+            "name": "Debug-linux-gcc",
+            "displayName": "Debug-linux-gcc",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "/opt/vcpkg/scripts/buildsystems/vcpkg.cmake",
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install/${presetName}",
+                "CMAKE_MAKE_PROGRAM": "make",
+				"CMAKE_C_COMPILER": "gcc",
+                "CMAKE_BUILD_TYPE": "Debug"
             }
         },
         {
@@ -36,15 +50,14 @@
         {
             "name": "Release-linux",
             "displayName": "Release-linux",
+            "generator": "Unix Makefiles",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "toolchainFile": "/opt/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install/${presetName}",
-				"generator": "Unix Makefiles",
                 "CMAKE_MAKE_PROGRAM": "make",
 				"CMAKE_C_COMPILER": "gcc",
-                "CMAKE_BUILD_TYPE": "Release",
-                "VCPKG_TARGET_TRIPLET": "arm64-linux"
+                "CMAKE_BUILD_TYPE": "Release"
             }
         }
     ]
