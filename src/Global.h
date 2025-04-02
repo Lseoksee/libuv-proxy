@@ -34,6 +34,8 @@ typedef struct {
     uv_buf_t send_buf;
     /** 메모리 할당 헤제용 */
     uv_connect_t *target_connecter;
+    /** 레퍼런스 카운트 */
+    int ref_count;
 } Client;
 
 typedef struct {
@@ -55,3 +57,6 @@ void on_write(uv_write_t *req, int status);
 
 /** 종료 플래그 전송 */
 void on_shutdown(uv_shutdown_t* req, int status);
+
+void ref_client(Client* client);
+void unref_client(Client* client);

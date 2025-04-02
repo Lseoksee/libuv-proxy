@@ -48,11 +48,21 @@ void on_dns(dns_response_t *dns) {
     Client *client = dns->client_data;
     dns_response_s res = dns->dns_response;
 
-    //TODO: client에 메모리 해제시 대응 필요
+    // DNS 요청을 완료 했지만 이미 소켓이 닫혀버린 경우 처리
+    if (client->proxyClient == NULL || uv_is_closing((uv_handle_t *)client->proxyClient)) {
+        unref_client(client);
+        return;
+    }
+
+    // TODO: client에 메모리 해제시 대응 필요
     if (res.status == 1) {
+        // ConnectTargetServer측
+        ref_client(client);
         ConnectTargetServer(res.ip_address, atoi(res.port), client);
         put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", res.hostname);
         client->state = 1;
+        // dns 요청시 rc 감소용
+        unref_client(client);
         return;
     } else {
         // 실행 인자 dns 주소 인경우
@@ -68,7 +78,7 @@ void on_dns(dns_response_t *dns) {
             // 보조 DNS 주소로 다시 시도
             if (res.dns_address == SERVER_DNS.dns_1 && SERVER_DNS.dns_2 != NULL) {
                 put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 주소 %s 로 재시도", res.hostname, SERVER_DNS.dns_2);
-                int status = send_dns_query(loop, res.hostname, res.port, SERVER_DNS.dns_2, 1, client, on_dns);
+                int status = send_dns_query(loop, res.hostname, res.port, SERVER_DNS.dns_2, 1, res.timeout, client, on_dns);
                 if (status == 1) {
                     return;
                 }
@@ -84,8 +94,10 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     Client *client = (Client *)stream->data;
 
     if (nread <= 0) {
-        if (nread != UV_EOF) {
-            put_ip_log(LOG_WARNING, client->ClientIP, "클라이언트 데이터 읽기 오류, Code: %s", uv_err_name(nread));
+        if (nread == UV_EOF) {
+            put_ip_log(LOG_INFO, client->ClientIP, "클라이언트 연결종료");
+        } else {
+            put_ip_log(LOG_WARNING, client->ClientIP, "클라이언트 비정상 연결종료: 클라이언트 데이터 읽기 오류, Code: %s", uv_err_name(nread));
         }
 
         uv_close((uv_handle_t *)stream, close_cb);
@@ -110,7 +122,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         addr_p = &addr;
         parseHeader_p = &parseHeader;
         char ipaddr[INET6_ADDRSTRLEN];
-        char *host = NULL;
+        char *host, *porxy = NULL;
         int status;
 
         parseHeader = parse_http_request(buf->base, buf->len);
@@ -127,16 +139,10 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             // 호스트 구하기
             if (strcmp(parseHeader.headers[i].key, "Host") == 0) {
                 host = parseHeader.headers[i].value;
-                break;
             }
-        }
-
-        if (host == NULL) {
-            put_ip_log(LOG_ERROR, client->ClientIP, "프록시 헤더를 찾을 수 없음");
-            freeHeader(parseHeader_p);
-            free(buf->base);
-            uv_close((uv_handle_t *)stream, close_cb);
-            return;
+            if (strcmp(parseHeader.headers[i].key, "Proxy-Connection") == 0) {
+                porxy = parseHeader.headers[i].value;
+            }
         }
 
         if (strcmp(parseHeader.method, "CONNECT") == 0) {
@@ -145,6 +151,14 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             client->connect_mode = PROXY_HTTPS;
         } else {
             // HTTP 연결
+            if (host == NULL || porxy == NULL) {
+                put_ip_log(LOG_ERROR, client->ClientIP, "프록시 헤더를 찾을 수 없음");
+                freeHeader(parseHeader_p);
+                free(buf->base);
+                uv_close((uv_handle_t *)stream, close_cb);
+                return;
+            }
+
             addr = parseURL(host);
             char *send_buf = (char *)malloc(nread);
             memcpy(send_buf, buf->base, nread);
@@ -161,12 +175,15 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             }
             // 실행 인자 DNS 서버 사용
             else {
-                status = send_dns_query(loop, addr.url, addr.port, SERVER_DNS.dns_1, 1, client, on_dns);
+                status = send_dns_query(loop, addr.url, addr.port, SERVER_DNS.dns_1, 1, 5000, client, on_dns);
             }
 
             if (status != 1) {
                 put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 요청 쿼리 전송 실패, Code: %d", client->host, status);
                 uv_close((uv_handle_t *)stream, close_cb);
+            } else {
+                // DNS 콜백 client 대기를 위한
+                ref_client(client);
             }
         } else {
             on_dns(&dns);
@@ -193,6 +210,7 @@ void on_new_connection(uv_stream_t *server, int status) {
     if (uv_accept(server, (uv_stream_t *)client) == 0) {
         Client *client_data = Create_client();
         client_data->proxyClient = (uv_stream_t *)client;
+        ref_client(client_data);
         client->data = client_data;
 
         get_client_ip((uv_stream_t *)client, client_data->ClientIP, sizeof(client_data->ClientIP));

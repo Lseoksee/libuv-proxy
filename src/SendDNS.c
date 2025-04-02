@@ -108,8 +108,6 @@ void on_dns_close(uv_handle_t* handle) {
     }
 
     if (req->udp_handle.state == -1 && req->timeout_timer.state == -1) {
-        req->udp_handle.handle.data = NULL;
-        req->timeout_timer.timer.data = NULL;
         free(req->res.dns_response.hostname);
         free(req->res.dns_response.port);
         free(req);
@@ -238,7 +236,7 @@ void on_timeout(uv_timer_t* timer) {
 // UDP 전송 콜백
 void on_udp_send(uv_udp_send_t* req, int status) { free(req); }
 
-int send_dns_query(uv_loop_t* loop, char* hostname, char* port, char* dns_server, int query_type, Client* client, dns_query_cb cb) {
+int send_dns_query(uv_loop_t* loop, char* hostname, char* port, char* dns_server, int query_type, uint64_t timeout, Client* client, dns_query_cb cb) {
     struct sockaddr_in dns_addr;
     int r;
 
@@ -258,6 +256,7 @@ int send_dns_query(uv_loop_t* loop, char* hostname, char* port, char* dns_server
     req->res.dns_response.status = 1;
     req->res.dns_response.hostname = strdup(hostname);
     req->res.dns_response.port = strdup(port);
+    req->res.dns_response.timeout = timeout;
 
     // UDP 핸들 초기화
     uv_udp_init(loop, &req->udp_handle.handle);
@@ -286,7 +285,7 @@ int send_dns_query(uv_loop_t* loop, char* hostname, char* port, char* dns_server
     }
 
     // 타임아웃 타이머 시작
-    uv_timer_start(&req->timeout_timer.timer, on_timeout, 3000, 0);
+    uv_timer_start(&req->timeout_timer.timer, on_timeout, timeout, 0);
 
     // DNS 쿼리 패킷 생성
     unsigned char dns_packet[512];  // DNS 패킷 최대 크기

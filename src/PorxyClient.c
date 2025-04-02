@@ -1,6 +1,5 @@
 #include "Global.h"
 #include "PorxyClient.h"
-
 #include "ServerLog.h"
 
 uv_loop_t *mainLoop = NULL;
@@ -15,8 +14,10 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     Client *client = (Client *)stream->data;
 
     if (nread <= 0) {
-        if (nread != UV_EOF) {
-            put_ip_log(LOG_WARNING, client->ClientIP, "프록시 서버 데이터 읽기 오류, Code: %s", uv_err_name(nread));
+        if (nread == UV_EOF) {
+            put_ip_log(LOG_INFO, client->ClientIP, "%s 서버측 연결종료", client->host);
+        } else {
+            put_ip_log(LOG_WARNING, client->ClientIP, "%s 서버측 비정상 연결종료: 클라이언트 데이터 읽기 오류, Code: %s", client->host, uv_err_name(nread));
         }
 
         uv_close((uv_handle_t *)stream, close_cb);
@@ -45,7 +46,8 @@ void on_connect_porxy(uv_connect_t *req, int status) {
     Client *client = (Client *)req->handle->data;
 
     if (status < 0) {
-        put_ip_log(LOG_WARNING, client->ClientIP, "프록시 서버 연결 오류, Code: %s", uv_strerror(status));
+        put_ip_log(LOG_WARNING, client->ClientIP, "타겟 서버 연결 오류, Code: %s", uv_strerror(status));
+        uv_close((uv_handle_t *)req->handle, close_cb);
         return;
     }
 
@@ -94,7 +96,7 @@ void ConnectTargetServer(char *addr, int port, Client *client) {
     struct sockaddr_in dest;
 
     uv_tcp_t *ClientHandle = (uv_tcp_t *)malloc(sizeof(uv_tcp_t));
-    uv_connect_t *connecter = (uv_connect_t*) malloc(sizeof(uv_connect_t));
+    uv_connect_t *connecter = (uv_connect_t *)malloc(sizeof(uv_connect_t));
 
     uv_tcp_init(mainLoop, ClientHandle);
     uv_ip4_addr(addr, port, &dest);

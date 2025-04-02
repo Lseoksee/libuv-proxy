@@ -19,17 +19,8 @@ void close_cb(uv_handle_t *handle) {
         client->targetClient = NULL;
     }
 
-    uv_unref(handle);
     free(handle);
-    free(client->host);
-    handle = NULL;
-    client->host = NULL;
-
-    if (client->proxyClient == NULL && client->targetClient == NULL) {
-        free(client->target_connecter);
-        free(client);
-        client = NULL;
-    }
+    unref_client(client);
 }
 
 void on_write(uv_write_t *req, int status) {
@@ -38,3 +29,14 @@ void on_write(uv_write_t *req, int status) {
 }
 
 void on_shutdown(uv_shutdown_t *req, int status) { free(req); }
+
+void ref_client(Client *client) { client->ref_count++; }
+
+void unref_client(Client *client) { 
+    client->ref_count--; 
+    if (client->ref_count == 0) {
+        free(client->host);
+        free(client->target_connecter);
+        free(client);
+    }
+}
