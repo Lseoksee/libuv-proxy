@@ -24,7 +24,10 @@ void put_log(LOG_TYPE log_type, const char *__restrict__ _Format, ...) {
     va_end(args);
 
     char buf[len + 1];
+
+    va_start(args, _Format);
     vsnprintf(buf, len + 1, _Format, args);
+    va_end(args);
 
     switch (log_type) {
         case LOG_INFO:
@@ -55,7 +58,10 @@ void put_time_log(LOG_TYPE log_type, const char *__restrict__ _Format, ...) {
     va_end(args);
 
     char buf[len + 1];
+
+    va_start(args, _Format);
     vsnprintf(buf, len + 1, _Format, args);
+    va_end(args);
 
     switch (log_type) {
         case LOG_INFO:
@@ -86,7 +92,10 @@ void put_ip_log(LOG_TYPE log_type, const char* ip_addr, const char *__restrict__
     va_end(args);
 
     char buf[len + 1];
+
+    va_start(args, _Format);
     vsnprintf(buf, len + 1, _Format, args);
+    va_end(args);
 
     switch (log_type) {
         case LOG_INFO:

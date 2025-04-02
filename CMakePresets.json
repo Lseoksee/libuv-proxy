@@ -9,7 +9,7 @@
             "toolchainFile": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install/${presetName}",
-                "CMAKE_C_COMPILER": "C:/Program Files/mingw64/bin/gcc.exe",
+                "CMAKE_C_COMPILER": "gcc",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "VCPKG_TARGET_TRIPLET": "x64-mingw-static"
             }
@@ -22,7 +22,7 @@
             "toolchainFile": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install/${presetName}",
-                "CMAKE_C_COMPILER": "C:/Program Files/mingw64/bin/gcc.exe",
+                "CMAKE_C_COMPILER": "gcc",
                 "CMAKE_BUILD_TYPE": "Release",
                 "VCPKG_TARGET_TRIPLET": "x64-mingw-static",
                 "CMAKE_C_FLAGS": "-fexec-charset=EUC-KR"
