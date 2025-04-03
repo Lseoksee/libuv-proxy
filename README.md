@@ -67,7 +67,7 @@ libuv로 간단한 크로스 플렛폼 HTTP 프록시 서버 구현
 
     ```bash
     ...
-    "VCPKG_TOOLCHAIN_WINDOWS": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
+    "VCPKG_TOOLCHAIN_FILE": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
     ...
     ```
 
@@ -136,7 +136,7 @@ libuv로 간단한 크로스 플렛폼 HTTP 프록시 서버 구현
 
     ```bash
     ...
-    "VCPKG_TOOLCHAIN_LINUX": <vcpkg 설치과정준 기억해둔 그 경로>
+    "VCPKG_TOOLCHAIN_FILE": <vcpkg 설치과정준 기억해둔 그 경로>
     ...
     ```
 

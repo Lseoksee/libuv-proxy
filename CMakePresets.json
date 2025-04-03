@@ -13,16 +13,14 @@
             "hidden": true,
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
-                "CMAKE_C_STANDARD": "23",
-                "CMAKE_CXX_COMPILER": "g++"
+                "CMAKE_C_STANDARD": "23"
             },
             "environment": {
                 "ARCH": "x64",
-                "C_COMPILER_WINDOWS": "gcc",
-                "VCPKG_TOOLCHAIN_WINDOWS": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_TOOLCHAIN_FILE": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "C_COMPILER": "gcc",
+                "CXX_COMPILER": "g++",
                 "INSTALL_PREFIX_WINDOWS": "${sourceDir}/dist",
-                "C_COMPILER_LINUX": "gcc",
-                "VCPKG_TOOLCHAIN_LINUX": "/opt/vcpkg/scripts/buildsystems/vcpkg.cmake",
                 "INSTALL_PREFIX_LINUX": "/usr"
             }
         },
@@ -31,13 +29,14 @@
             "displayName": "Debug-Mingw-w64",
             "generator": "MinGW Makefiles",
             "inherits": "Global",
-            "toolchainFile": "$env{VCPKG_TOOLCHAIN_WINDOWS}",
+            "toolchainFile": "$env{VCPKG_TOOLCHAIN_FILE}",
             "installDir": "$env{INSTALL_PREFIX_WINDOWS}",
             "environment": {
                 "charset": "UTF-8"
             },
             "cacheVariables": {
-                "CMAKE_C_COMPILER": "$env{C_COMPILER_WINDOWS}",
+                "CMAKE_C_COMPILER": "$env{C_COMPILER}",
+                "CMAKE_CXX_COMPILER": "$env{CXX_COMPILER}",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "VCPKG_TARGET_TRIPLET": "$env{ARCH}-mingw-static"
             }
@@ -47,13 +46,14 @@
             "displayName": "Debug-linux-gcc",
             "generator": "Unix Makefiles",
             "inherits": "Global",
-            "toolchainFile": "$env{VCPKG_TOOLCHAIN_LINUX}",
+            "toolchainFile": "$env{VCPKG_TOOLCHAIN_FILE}",
             "installDir": "$env{INSTALL_PREFIX_LINUX}",
             "environment": {
                 "charset": "UTF-8"
             },
             "cacheVariables": {
-                "CMAKE_C_COMPILER": "$env{C_COMPILER_LINUX}",
+                "CMAKE_C_COMPILER": "$env{C_COMPILER}",
+                "CMAKE_CXX_COMPILER": "$env{CXX_COMPILER}",
                 "CMAKE_MAKE_PROGRAM": "make",
                 "CMAKE_BUILD_TYPE": "Debug"
             }
@@ -63,14 +63,15 @@
             "displayName": "Release-Mingw-w64",
             "generator": "MinGW Makefiles",
             "inherits": "Global",
-            "toolchainFile": "$env{VCPKG_TOOLCHAIN_WINDOWS}",
+            "toolchainFile": "$env{VCPKG_TOOLCHAIN_FILE}",
             "installDir": "$env{INSTALL_PREFIX_WINDOWS}",
             "environment": {
                 "charset": "EUC-KR"
             },
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "$env{INSTALL_PREFIX_WINDOWS}",
-                "CMAKE_C_COMPILER": "$env{C_COMPILER_WINDOWS}",
+                "CMAKE_C_COMPILER": "$env{C_COMPILER}",
+                "CMAKE_CXX_COMPILER": "$env{CXX_COMPILER}",
                 "CMAKE_BUILD_TYPE": "Release",
                 "VCPKG_TARGET_TRIPLET": "$env{ARCH}-mingw-static"
             }
@@ -80,14 +81,15 @@
             "displayName": "Release-Mingw-w64 on linux",
             "generator": "Unix Makefiles",
             "inherits": "Global",
-            "toolchainFile": "$env{VCPKG_TOOLCHAIN_WINDOWS}",
+            "toolchainFile": "$env{VCPKG_TOOLCHAIN_FILE}",
             "installDir": "$env{INSTALL_PREFIX_WINDOWS}",
             "environment": {
                 "charset": "EUC-KR"
             },
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "$env{INSTALL_PREFIX_WINDOWS}",
-                "CMAKE_C_COMPILER": "$env{C_COMPILER_WINDOWS}",
+                "CMAKE_C_COMPILER": "$env{C_COMPILER}",
+                "CMAKE_CXX_COMPILER": "$env{CXX_COMPILER}",
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_MAKE_PROGRAM": "make",
                 "VCPKG_TARGET_TRIPLET": "$env{ARCH}-mingw-static"
@@ -98,13 +100,14 @@
             "displayName": "Release-linux",
             "generator": "Unix Makefiles",
             "inherits": "Global",
-            "toolchainFile": "$env{VCPKG_TOOLCHAIN_LINUX}",
+            "toolchainFile": "$env{VCPKG_TOOLCHAIN_FILE}",
             "installDir": "$env{INSTALL_PREFIX_LINUX}",
             "environment": {
                 "charset": "UTF-8"
             },
             "cacheVariables": {
-                "CMAKE_C_COMPILER": "$env{C_COMPILER_LINUX}",
+                "CMAKE_C_COMPILER": "$env{C_COMPILER}",
+                "CMAKE_CXX_COMPILER": "$env{CXX_COMPILER}",
                 "CMAKE_MAKE_PROGRAM": "make",
                 "CMAKE_BUILD_TYPE": "Release"
             }
