@@ -1,0 +1,146 @@
+# This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
+name: Build With CMake
+
+on:
+  push:
+      branches: 
+        - main
+      tags: 
+        - "**"
+
+jobs:
+  build:
+    env:
+      VCPKG_PATH: ~/vcpkg
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    strategy:
+      matrix:
+        buid_os: [windows, linux]
+        buid_arch: [x64, x86, arm64, arm]
+        exclude:
+          - buid_os: windows
+            buid_arch: arm64
+          - buid_os: windows
+            buid_arch: arm
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # windows x64
+    - name: Install compiler package
+      if: matrix.buid_os == 'windows' && matrix.buid_arch == 'x64'
+      env:
+        ROOT_PATH: x86_64-w64-mingw32
+        PRESET: Cross-Release-Mingw-w64
+        CC_COMPILER: x86_64-w64-mingw32-gcc
+        CXX_COMPILER: x86_64-w64-mingw32-g++
+        CMAKE_ARCH: x86_64
+        VCPKG_ARCH: ${{matrix.buid_arch}}
+      run: |
+        sudo apt update
+        sudo apt install -y mingw-w64 make cmake jq pkg-config cmake
+        cp /usr/bin/${{env.CC_COMPILER}} /usr/bin/gcc
+        cp /usr/bin/${{env.CXX_COMPILER}} /usr/bin/g++
+
+    # windows x86
+    - name: Install compiler package
+      if: matrix.buid_os == 'windows' && matrix.buid_arch == 'x86'
+      env:
+        ROOT_PATH: i686-w64-mingw32
+        PRESET: Cross-Release-Mingw-w64
+        CC_COMPILER: i686-w64-mingw32-gcc
+        CXX_COMPILER: i686-w64-mingw32-g++
+        CMAKE_ARCH: i686
+        VCPKG_ARCH: ${{matrix.buid_arch}}
+      run: |
+        sudo apt update
+        sudo apt install -y mingw-w64 make cmake jq pkg-config cmake
+        cp /usr/bin/${{env.CC_COMPILER}} /usr/bin/gcc
+        cp /usr/bin/${{env.CXX_COMPILER}} /usr/bin/g++
+
+    # linux x64
+    - name: Install compiler package
+      if: matrix.buid_os == 'linux' && matrix.buid_arch == 'x86'
+      env:
+        ROOT_PATH:
+        PRESET: Release-linux
+        CC_COMPILER: gcc
+        CXX_COMPILER: g++
+        CMAKE_ARCH: x86_64
+        VCPKG_ARCH: ${{matrix.buid_arch}}
+      run: |
+        sudo apt update
+        sudo apt install -y gcc g++ make cmake jq pkg-config cmake
+
+    # linux x86
+    - name: Install compiler package
+      if: matrix.buid_os == 'linux' && matrix.buid_arch == 'x86'
+      env:
+        ROOT_PATH: i686-linux-gnu
+        PRESET: Cross-Release-linux
+        CC_COMPILER: i686-linux-gnu-gcc
+        CXX_COMPILER: i686-linux-gnu-g++
+        CMAKE_ARCH: i686
+        VCPKG_ARCH: ${{matrix.buid_arch}}
+      run: |
+        sudo apt update
+        sudo apt install -y gcc-i686-linux-gnu g++-i686-linux-gnu make cmake jq pkg-config cmake
+        cp /usr/bin/${{env.CC_COMPILER}} /usr/bin/gcc
+        cp /usr/bin/${{env.CXX_COMPILER}} /usr/bin/g++
+
+      # linux aarch64
+    - name: Install compiler package
+      if: matrix.buid_os == 'linux' && matrix.buid_arch == 'arm64'
+      env:
+        ROOT_PATH: aarch64-linux-gnueabihf
+        PRESET: Cross-Release-linux
+        CC_COMPILER: aarch64-linux-gnu-gcc
+        CXX_COMPILER: aarch64-linux-gnu-g++
+        CMAKE_ARCH: aarch64
+        VCPKG_ARCH: ${{matrix.buid_arch}}
+      run: |
+        sudo apt update
+        sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu make cmake jq pkg-config cmake
+        cp /usr/bin/${{env.CC_COMPILER}} /usr/bin/gcc
+        cp /usr/bin/${{env.CXX_COMPILER}} /usr/bin/g++
+
+    # linux arm
+    - name: Install compiler package
+      if: matrix.buid_os == 'linux' && matrix.buid_arch == 'arm'
+      env:
+        ROOT_PATH: arm-linux-gnueabihf
+        PRESET: Cross-Release-linux
+        CC_COMPILER: arm-linux-gnueabihf-gcc
+        CXX_COMPILER: arm-linux-gnueabihf-g++
+        CMAKE_ARCH: arm
+        VCPKG_ARCH: ${{matrix.buid_arch}}
+      run: |
+        sudo apt update
+        sudo apt install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf make cmake jq pkg-config cmake
+        cp /usr/bin/${{env.CC_COMPILER}} /usr/bin/gcc
+        cp /usr/bin/${{env.CXX_COMPILER}} /usr/bin/g++
+
+    - name: Install vcpkg
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git ~/vcpkg
+        bash ${{env.VCPKG_PATH}}/vcpkg/bootstrap-vcpkg.sh
+        ${{env.VCPKG_PATH}}/vcpkg integrate install
+
+    - name: Config build-setting
+      run: |
+        jq '.configurePresets[0].environment.CMAKE_ARCH = "${{env.CMAKE_ARCH}}"' < CMakePresets.json > temp.json
+        mv temp.json CMakePresets.json
+        jq '.configurePresets[0].environment.VCPKG_ARCH = "${{env.VCPKG_ARCH}}"' < CMakePresets.json > temp.json
+        mv temp.json CMakePresets.json
+        jq '.configurePresets[0].environment.VCPKG_TOOLCHAIN_FILE = "${{env.VCPKG_PATH}}/scripts/buildsystems/vcpkg.cmake"' < CMakePresets.json > temp.json
+        mv temp.json CMakePresets.json
+        jq '.configurePresets[0].environment.CROSS_ONLY_FIND_ROOT_PATH = "/usr/${{env.ROOT_PATH}}"' < CMakePresets.json > temp.json
+        mv temp.json CMakePresets.json
+
+    - name: Build excutefile
+      run: |
+        cmake --preset ${{env.PRESET}}
+        cmake --build --preset ${{env.PRESET}}
