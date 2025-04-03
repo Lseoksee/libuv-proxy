@@ -20,7 +20,7 @@
                 "INSTALL_PREFIX_WINDOWS": "${sourceDir}/dist",
                 "C_COMPILER_LINUX": "gcc",
                 "VCPKG_TOOLCHAIN_LINUX": "/opt/vcpkg/scripts/buildsystems/vcpkg.cmake",
-                "INSTALL_PREFIX_LINUX": "/usr/bin"
+                "INSTALL_PREFIX_LINUX": "/usr"
             }
         },
         {
@@ -66,6 +66,7 @@
                 "charset": "EUC-KR"
             },
             "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "$env{INSTALL_PREFIX_WINDOWS}",
                 "CMAKE_C_COMPILER": "$env{C_COMPILER_WINDOWS}",
                 "CMAKE_BUILD_TYPE": "Release",
                 "VCPKG_TARGET_TRIPLET": "x64-mingw-static"

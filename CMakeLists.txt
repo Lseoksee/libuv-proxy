@@ -39,4 +39,4 @@ target_include_directories(K-WarningBypass PRIVATE src src/parser src/sha256)
 #== install 옵션==
 
 # 실행파일
-install(TARGETS K-WarningBypass DESTINATION "$ENV{INSTALL_PREFIX_WINDOWS}")
+install(TARGETS K-WarningBypass DESTINATION "$ENV{CMAKE_INSTALL_PREFIX}")
