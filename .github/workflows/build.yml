@@ -149,14 +149,14 @@ jobs:
     - name: Rename exe File (windows)
       if: matrix.buid_os == 'windows'
       run: |
-        echo "EXCUTE_NAME=uv_proxy-1.0-${{matrix.buid_os}}-${{matrix.buid_arch}}.exe" >> $GITHUB_ENV
-        mv build/${{env.PRESET}}/uv_proxy.exe ./${{env.EXCUTE_NAME}}
+        mv build/${{env.PRESET}}/uv_proxy.exe ./uv_proxy-${{env.TAG}}-${{matrix.buid_os}}-${{matrix.buid_arch}}.exe
+        echo "EXCUTE_NAME=uv_proxy-${{env.TAG}}-${{matrix.buid_os}}-${{matrix.buid_arch}}.exe" >> $GITHUB_ENV
 
     - name: Rename exe File (linux)
       if: matrix.buid_os == 'linux'
       run: |
-        echo "EXCUTE_NAME=uv_proxy-1.0-${{matrix.buid_os}}-${{matrix.buid_arch}}" >> $GITHUB_ENV
-        mv build/${{env.PRESET}}/uv_proxy ./${{env.EXCUTE_NAME}}
+        mv build/${{env.PRESET}}/uv_proxy ./uv_proxy-1.0-${{matrix.buid_os}}-${{matrix.buid_arch}}
+        echo "EXCUTE_NAME=uv_proxy-${{env.TAG}}-${{matrix.buid_os}}-${{matrix.buid_arch}}" >> $GITHUB_ENV
 
     - name: Release
       uses: softprops/action-gh-release@v2.2.1
