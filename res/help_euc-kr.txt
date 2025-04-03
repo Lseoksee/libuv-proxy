@@ -1,4 +1,4 @@
-사용법: K-WarningBypass [옵션...]
+사용법: uv_proxy [옵션...]
 
 옵션:
 [--port, -p <port>]: 프록시 서버에 포트번호를 지정합니다. (default: 1503)
