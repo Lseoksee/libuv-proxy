@@ -1,10 +1,11 @@
 {
     "version": 8,
     "buildPresets": [
-        { "name": "Debug-Mingw-x64", "configurePreset": "Debug-Mingw-x64" },
+        { "name": "Debug-Mingw-w64", "configurePreset": "Debug-Mingw-w64" },
         { "name": "Debug-linux-gcc", "configurePreset": "Debug-linux-gcc" },
-        { "name": "Release-Mingw-x64", "configurePreset": "Release-Mingw-x64" },
-        { "name": "Release-linux", "configurePreset": "Release-linux" }
+        { "name": "Release-Mingw-w64", "configurePreset": "Release-Mingw-w64" },
+        { "name": "Release-linux", "configurePreset": "Release-linux" },
+        { "name": "Release-Mingw-w64 on linux", "configurePreset": "Release-Mingw-w64 on linux" }
     ],
     "configurePresets": [
         {
@@ -12,9 +13,11 @@
             "hidden": true,
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
-                "CMAKE_C_STANDARD": "23"
+                "CMAKE_C_STANDARD": "23",
+                "CMAKE_CXX_COMPILER": "g++"
             },
             "environment": {
+                "ARCH": "x64",
                 "C_COMPILER_WINDOWS": "gcc",
                 "VCPKG_TOOLCHAIN_WINDOWS": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
                 "INSTALL_PREFIX_WINDOWS": "${sourceDir}/dist",
@@ -24,8 +27,8 @@
             }
         },
         {
-            "name": "Debug-Mingw-x64",
-            "displayName": "Debug-Mingw-x64",
+            "name": "Debug-Mingw-w64",
+            "displayName": "Debug-Mingw-w64",
             "generator": "MinGW Makefiles",
             "inherits": "Global",
             "toolchainFile": "$env{VCPKG_TOOLCHAIN_WINDOWS}",
@@ -36,7 +39,7 @@
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "$env{C_COMPILER_WINDOWS}",
                 "CMAKE_BUILD_TYPE": "Debug",
-                "VCPKG_TARGET_TRIPLET": "x64-mingw-static"
+                "VCPKG_TARGET_TRIPLET": "$env{ARCH}-mingw-static"
             }
         },
         {
@@ -56,8 +59,8 @@
             }
         },
         {
-            "name": "Release-Mingw-x64",
-            "displayName": "Release-Mingw-x64",
+            "name": "Release-Mingw-w64",
+            "displayName": "Release-Mingw-w64",
             "generator": "MinGW Makefiles",
             "inherits": "Global",
             "toolchainFile": "$env{VCPKG_TOOLCHAIN_WINDOWS}",
@@ -69,7 +72,25 @@
                 "CMAKE_INSTALL_PREFIX": "$env{INSTALL_PREFIX_WINDOWS}",
                 "CMAKE_C_COMPILER": "$env{C_COMPILER_WINDOWS}",
                 "CMAKE_BUILD_TYPE": "Release",
-                "VCPKG_TARGET_TRIPLET": "x64-mingw-static"
+                "VCPKG_TARGET_TRIPLET": "$env{ARCH}-mingw-static"
+            }
+        },
+        {
+            "name": "Release-Mingw-w64 on linux",
+            "displayName": "Release-Mingw-w64 on linux",
+            "generator": "Unix Makefiles",
+            "inherits": "Global",
+            "toolchainFile": "$env{VCPKG_TOOLCHAIN_WINDOWS}",
+            "installDir": "$env{INSTALL_PREFIX_WINDOWS}",
+            "environment": {
+                "charset": "EUC-KR"
+            },
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "$env{INSTALL_PREFIX_WINDOWS}",
+                "CMAKE_C_COMPILER": "$env{C_COMPILER_WINDOWS}",
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_MAKE_PROGRAM": "make",
+                "VCPKG_TARGET_TRIPLET": "$env{ARCH}-mingw-static"
             }
         },
         {

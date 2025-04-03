@@ -94,10 +94,10 @@ libuv로 간단한 크로스 플렛폼 HTTP 프록시 서버 구현
 
 ### 리눅스 (우분투)
 
-1. **Cmake & GCC & G++ 설치**
+1. **Cmake & GCC & G++ & pkg-config 설치**
     
     ```bash
-    sudo apt install cmake gcc g++
+    sudo apt install cmake gcc g++ pkg-config
     ```
 
 2. **vcpkg 설치**
@@ -154,8 +154,8 @@ libuv로 간단한 크로스 플렛폼 HTTP 프록시 서버 구현
 
 6. **최종 실행파일 생성**
 
-    > 실행파일은 ./dist/bin 폴더에 생성됨
+    > 실행파일은 /usr/bin 폴더에 생성됨
 
     ```bash
-    cmake --install build/<프리셋>
+    sudo cmake --install build/<프리셋>
     ```
