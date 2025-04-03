@@ -102,6 +102,10 @@
             "inherits": "Global",
             "toolchainFile": "$env{VCPKG_TOOLCHAIN_FILE}",
             "installDir": "$env{INSTALL_PREFIX_LINUX}",
+            "architecture":{
+                "strategy": "set",
+                "value": "$env{ARCH}"
+            },
             "environment": {
                 "charset": "UTF-8"
             },
@@ -109,7 +113,8 @@
                 "CMAKE_C_COMPILER": "$env{C_COMPILER}",
                 "CMAKE_CXX_COMPILER": "$env{CXX_COMPILER}",
                 "CMAKE_MAKE_PROGRAM": "make",
-                "CMAKE_BUILD_TYPE": "Release"
+                "CMAKE_BUILD_TYPE": "Release",
+                "VCPKG_TARGET_TRIPLET": "$env{ARCH}-linux"
             }
         }
     ]
