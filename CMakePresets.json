@@ -19,12 +19,12 @@
             "environment": {
                 "CMAKE_ARCH": "x86_64",
                 "VCPKG_ARCH": "x64",
-                "VCPKG_TOOLCHAIN_FILE": "~/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_TOOLCHAIN_FILE": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
                 "C_COMPILER": "gcc",
                 "CXX_COMPILER": "g++",
                 "INSTALL_PREFIX_WINDOWS": "${sourceDir}/dist",
                 "INSTALL_PREFIX_LINUX": "/usr",
-                "CROSS_ONLY_FIND_ROOT_PATH": "/usr/x86_64-w64-mingw32"
+                "CROSS_ONLY_FIND_ROOT_PATH": ""
             }
         },
         {
