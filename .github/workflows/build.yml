@@ -1,20 +1,28 @@
-# This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
-# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
 name: Build With CMake
 
+env:
+  VCPKG_PATH: ~/vcpkg
+  TAG:
+  EXCUTE_NAME:
 on:
   push:
       branches: 
         - main
       tags: 
-        - "**"
+        - "v*"
 
 jobs:
   build:
     env:
-      VCPKG_PATH: ~/vcpkg
+      INSTALL_PAKIAGE:
+      ROOT_PATH:
+      PRESET:
+      CC_COMPILER:
+      CXX_COMPILER:
+      CMAKE_ARCH:
+      VCPKG_ARCH:
     runs-on: ubuntu-latest
-    # if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/')
 
     strategy:
       matrix:
@@ -29,107 +37,100 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Get Tag
+      run: echo "TAG=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
+
     # windows x64
-    - name: Install compiler package
+    - name: Set install environment (windows x64)
       if: matrix.buid_os == 'windows' && matrix.buid_arch == 'x64'
-      env:
-        ROOT_PATH: x86_64-w64-mingw32
-        PRESET: Cross-Release-Mingw-w64
-        CC_COMPILER: x86_64-w64-mingw32-gcc
-        CXX_COMPILER: x86_64-w64-mingw32-g++
-        CMAKE_ARCH: x86_64
-        VCPKG_ARCH: ${{matrix.buid_arch}}
       run: |
-        sudo apt update
-        sudo apt install -y mingw-w64 make cmake jq pkg-config cmake
-        cp /usr/bin/${{env.CC_COMPILER}} /usr/bin/gcc
-        cp /usr/bin/${{env.CXX_COMPILER}} /usr/bin/g++
+        echo "INSTALL_PAKIAGE=mingw-w64" >> $GITHUB_ENV
+        echo "ROOT_PATH=x86_64-w64-mingw32" >> $GITHUB_ENV
+        echo "PRESET=Cross-Release-Mingw-w64" >> $GITHUB_ENV
+        echo "CC_COMPILER=x86_64-w64-mingw32-gcc" >> $GITHUB_ENV
+        echo "CXX_COMPILER=x86_64-w64-mingw32-g++" >> $GITHUB_ENV
+        echo "CMAKE_ARCH=x86_64" >> $GITHUB_ENV
+        echo "VCPKG_ARCH=${{matrix.buid_arch}}" >> $GITHUB_ENV
 
     # windows x86
-    - name: Install compiler package
+    - name: Set install environment (windows x86)
       if: matrix.buid_os == 'windows' && matrix.buid_arch == 'x86'
-      env:
-        ROOT_PATH: i686-w64-mingw32
-        PRESET: Cross-Release-Mingw-w64
-        CC_COMPILER: i686-w64-mingw32-gcc
-        CXX_COMPILER: i686-w64-mingw32-g++
-        CMAKE_ARCH: i686
-        VCPKG_ARCH: ${{matrix.buid_arch}}
       run: |
-        sudo apt update
-        sudo apt install -y mingw-w64 make cmake jq pkg-config cmake
-        cp /usr/bin/${{env.CC_COMPILER}} /usr/bin/gcc
-        cp /usr/bin/${{env.CXX_COMPILER}} /usr/bin/g++
+        echo "INSTALL_PAKIAGE=mingw-w64" >> $GITHUB_ENV
+        echo "ROOT_PATH=i686-w64-mingw32" >> $GITHUB_ENV
+        echo "PRESET=Cross-Release-Mingw-w64" >> $GITHUB_ENV
+        echo "CC_COMPILER=i686-w64-mingw32-gcc" >> $GITHUB_ENV
+        echo "CXX_COMPILER=i686-w64-mingw32-g++" >> $GITHUB_ENV
+        echo "CMAKE_ARCH=i686" >> $GITHUB_ENV
+        echo "VCPKG_ARCH=${{matrix.buid_arch}}" >> $GITHUB_ENV
 
     # linux x64
-    - name: Install compiler package
-      if: matrix.buid_os == 'linux' && matrix.buid_arch == 'x86'
-      env:
-        ROOT_PATH:
-        PRESET: Release-linux
-        CC_COMPILER: gcc
-        CXX_COMPILER: g++
-        CMAKE_ARCH: x86_64
-        VCPKG_ARCH: ${{matrix.buid_arch}}
+    - name: Set install environment (linux x64)
+      id: default
+      if: matrix.buid_os == 'linux' && matrix.buid_arch == 'x64'
       run: |
-        sudo apt update
-        sudo apt install -y gcc g++ make cmake jq pkg-config cmake
+        echo "INSTALL_PAKIAGE=gcc g++" >> $GITHUB_ENV
+        echo "PRESET=Release-linux" >> $GITHUB_ENV
+        echo "CC_COMPILER=gcc" >> $GITHUB_ENV
+        echo "CXX_COMPILER=g++" >> $GITHUB_ENV
+        echo "CMAKE_ARCH=x86_64" >> $GITHUB_ENV
+        echo "VCPKG_ARCH=${{matrix.buid_arch}}" >> $GITHUB_ENV
 
     # linux x86
-    - name: Install compiler package
+    - name: Set install environment (linux x86)
       if: matrix.buid_os == 'linux' && matrix.buid_arch == 'x86'
-      env:
-        ROOT_PATH: i686-linux-gnu
-        PRESET: Cross-Release-linux
-        CC_COMPILER: i686-linux-gnu-gcc
-        CXX_COMPILER: i686-linux-gnu-g++
-        CMAKE_ARCH: i686
-        VCPKG_ARCH: ${{matrix.buid_arch}}
       run: |
-        sudo apt update
-        sudo apt install -y gcc-i686-linux-gnu g++-i686-linux-gnu make cmake jq pkg-config cmake
-        cp /usr/bin/${{env.CC_COMPILER}} /usr/bin/gcc
-        cp /usr/bin/${{env.CXX_COMPILER}} /usr/bin/g++
-
-      # linux aarch64
-    - name: Install compiler package
+        echo "INSTALL_PAKIAGE=gcc-i686-linux-gnu g++-i686-linux-gnu" >> $GITHUB_ENV
+        echo "ROOT_PATH=i686-linux-gnu" >> $GITHUB_ENV
+        echo "PRESET=Cross-Release-linux" >> $GITHUB_ENV
+        echo "CC_COMPILER=i686-linux-gnu-gcc" >> $GITHUB_ENV
+        echo "CXX_COMPILER=i686-linux-gnu-g++" >> $GITHUB_ENV
+        echo "CMAKE_ARCH=i686" >> $GITHUB_ENV
+        echo "VCPKG_ARCH=${{matrix.buid_arch}}" >> $GITHUB_ENV
+        
+    # linux aarch64
+    - name: Set install environment (linux arm64)
       if: matrix.buid_os == 'linux' && matrix.buid_arch == 'arm64'
-      env:
-        ROOT_PATH: aarch64-linux-gnueabihf
-        PRESET: Cross-Release-linux
-        CC_COMPILER: aarch64-linux-gnu-gcc
-        CXX_COMPILER: aarch64-linux-gnu-g++
-        CMAKE_ARCH: aarch64
-        VCPKG_ARCH: ${{matrix.buid_arch}}
       run: |
-        sudo apt update
-        sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu make cmake jq pkg-config cmake
-        cp /usr/bin/${{env.CC_COMPILER}} /usr/bin/gcc
-        cp /usr/bin/${{env.CXX_COMPILER}} /usr/bin/g++
+        echo "INSTALL_PAKIAGE=gcc-aarch64-linux-gnu g++-aarch64-linux-gnu" >> $GITHUB_ENV
+        echo "ROOT_PATH=aarch64-linux-gnueabihf" >> $GITHUB_ENV
+        echo "PRESET=Cross-Release-linux" >> $GITHUB_ENV
+        echo "CC_COMPILER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+        echo "CXX_COMPILER=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+        echo "CMAKE_ARCH=aarch64" >> $GITHUB_ENV
+        echo "VCPKG_ARCH=${{matrix.buid_arch}}" >> $GITHUB_ENV
 
     # linux arm
-    - name: Install compiler package
+    - name: Set install environment (linux arm)
       if: matrix.buid_os == 'linux' && matrix.buid_arch == 'arm'
-      env:
-        ROOT_PATH: arm-linux-gnueabihf
-        PRESET: Cross-Release-linux
-        CC_COMPILER: arm-linux-gnueabihf-gcc
-        CXX_COMPILER: arm-linux-gnueabihf-g++
-        CMAKE_ARCH: arm
-        VCPKG_ARCH: ${{matrix.buid_arch}}
+      run: |
+        echo "INSTALL_PAKIAGE=gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf" >> $GITHUB_ENV
+        echo "ROOT_PATH=arm-linux-gnueabihf" >> $GITHUB_ENV
+        echo "PRESET=Cross-Release-linux" >> $GITHUB_ENV
+        echo "CC_COMPILER=arm-linux-gnueabihf-gcc" >> $GITHUB_ENV
+        echo "CXX_COMPILER=arm-linux-gnueabihf-g++" >> $GITHUB_ENV
+        echo "CMAKE_ARCH=arm" >> $GITHUB_ENV
+        echo "VCPKG_ARCH=${{matrix.buid_arch}}" >> $GITHUB_ENV
+
+    - name: Install compiler package
       run: |
         sudo apt update
-        sudo apt install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf make cmake jq pkg-config cmake
-        cp /usr/bin/${{env.CC_COMPILER}} /usr/bin/gcc
-        cp /usr/bin/${{env.CXX_COMPILER}} /usr/bin/g++
+        sudo apt install -y ${{env.INSTALL_PAKIAGE}} make cmake jq pkg-config
+
+    - name: Set compiler
+      if: steps.default.outcome == 'skipped'
+      continue-on-error: true
+      run: |
+        sudo cp /usr/bin/${{env.CC_COMPILER}} /usr/bin/gcc
+        sudo cp /usr/bin/${{env.CXX_COMPILER}} /usr/bin/g++
 
     - name: Install vcpkg
       run: |
         git clone https://github.com/microsoft/vcpkg.git ~/vcpkg
-        bash ${{env.VCPKG_PATH}}/vcpkg/bootstrap-vcpkg.sh
+        bash ${{env.VCPKG_PATH}}/bootstrap-vcpkg.sh
         ${{env.VCPKG_PATH}}/vcpkg integrate install
 
-    - name: Config build-setting
+    - name: Config build setting
       run: |
         jq '.configurePresets[0].environment.CMAKE_ARCH = "${{env.CMAKE_ARCH}}"' < CMakePresets.json > temp.json
         mv temp.json CMakePresets.json
@@ -144,3 +145,22 @@ jobs:
       run: |
         cmake --preset ${{env.PRESET}}
         cmake --build --preset ${{env.PRESET}}
+
+    - name: Rename exe File (windows)
+      if: matrix.buid_os == 'windows'
+      run: |
+        echo "EXCUTE_NAME=uv_proxy-1.0-${{matrix.buid_os}}-${{matrix.buid_arch}}.exe" >> $GITHUB_ENV
+        mv build/${{env.PRESET}}/uv_proxy.exe ./${{env.EXCUTE_NAME}}
+
+    - name: Rename exe File (linux)
+      if: matrix.buid_os == 'linux'
+      run: |
+        echo "EXCUTE_NAME=uv_proxy-1.0-${{matrix.buid_os}}-${{matrix.buid_arch}}" >> $GITHUB_ENV
+        mv build/${{env.PRESET}}/uv_proxy ./${{env.EXCUTE_NAME}}
+
+    - name: Release
+      uses: softprops/action-gh-release@v2.2.1
+      env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_TOKEN}}
+      with:
+          files: ./${{env.EXCUTE_NAME}}
