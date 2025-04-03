@@ -3,9 +3,6 @@ cmake_minimum_required(VERSION 3.5.0)
 # 프로젝트 명
 project(K-WarningBypass VERSION 0.1.0 LANGUAGES C)
 
-set(CMAKE_C_COMPILER "gcc")
-set(CMAKE_C_STANDARD 23)
-
 # 실행파일 지정
 file(GLOB SOURCES "src/*.c" "src/parser/*.c" "src/sha256/*.c")
 add_executable(K-WarningBypass ${SOURCES})
@@ -24,6 +21,7 @@ elseif($ENV{charset} STREQUAL "EUC-KR")
         ${CMAKE_CURRENT_BINARY_DIR}/help.txt
         COPYONLY
     )
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexec-charset=EUC-KR")
 endif()
 set_target_properties(K-WarningBypass PROPERTIES 
     COMPILE_DEFINITIONS "DATA_FILE=\"${CMAKE_CURRENT_BINARY_DIR}/help.txt\""
@@ -37,3 +35,8 @@ find_package(libuv CONFIG REQUIRED)
 target_link_libraries(K-WarningBypass PRIVATE libuv::uv_a)
 
 target_include_directories(K-WarningBypass PRIVATE src src/parser src/sha256)
+
+#== install 옵션==
+
+# 실행파일
+install(TARGETS K-WarningBypass DESTINATION "$ENV{INSTALL_PREFIX_WINDOWS}")
