@@ -5,7 +5,8 @@
         { "name": "Debug-linux-gcc", "configurePreset": "Debug-linux-gcc" },
         { "name": "Release-Mingw-w64", "configurePreset": "Release-Mingw-w64" },
         { "name": "Release-linux", "configurePreset": "Release-linux" },
-        { "name": "Release-Mingw-w64 on linux", "configurePreset": "Release-Mingw-w64 on linux" }
+        { "name": "Cross-Release-linux", "configurePreset": "Cross-Release-linux" },
+        { "name": "Cross-Release-Mingw-w64", "configurePreset": "Cross-Release-Mingw-w64" }
     ],
     "configurePresets": [
         {
@@ -16,12 +17,14 @@
                 "CMAKE_C_STANDARD": "23"
             },
             "environment": {
+                "OS": "Windows",
                 "ARCH": "x64",
                 "VCPKG_TOOLCHAIN_FILE": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
                 "C_COMPILER": "gcc",
                 "CXX_COMPILER": "g++",
                 "INSTALL_PREFIX_WINDOWS": "${sourceDir}/dist",
-                "INSTALL_PREFIX_LINUX": "/usr"
+                "INSTALL_PREFIX_LINUX": "/usr",
+                "CROSS_ONLY_FIND_ROOT_PATH": ""
             }
         },
         {
@@ -77,8 +80,50 @@
             }
         },
         {
-            "name": "Release-Mingw-w64 on linux",
-            "displayName": "Release-Mingw-w64 on linux",
+            "name": "Release-linux",
+            "displayName": "Release-linux",
+            "generator": "Unix Makefiles",
+            "inherits": "Global",
+            "toolchainFile": "$env{VCPKG_TOOLCHAIN_FILE}",
+            "installDir": "$env{INSTALL_PREFIX_LINUX}",
+            "environment": {
+                "charset": "UTF-8"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "$env{C_COMPILER}",
+                "CMAKE_CXX_COMPILER": "$env{CXX_COMPILER}",
+                "CMAKE_MAKE_PROGRAM": "make",
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "Cross-Release-linux",
+            "displayName": "Release-linux",
+            "generator": "Unix Makefiles",
+            "inherits": "Global",
+            "toolchainFile": "$env{VCPKG_TOOLCHAIN_FILE}",
+            "installDir": "$env{INSTALL_PREFIX_LINUX}",
+            "environment": {
+                "charset": "UTF-8"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "$env{C_COMPILER}",
+                "CMAKE_CXX_COMPILER": "$env{CXX_COMPILER}",
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_MAKE_PROGRAM": "make",
+                "CMAKE_SYSTEM_NAME ": "$env{OS}",
+                "CMAKE_SYSTEM_PROCESSOR ": "$env{ARCH}",
+                "CMAKE_FIND_ROOT_PATH_MODE_PROGRAM  ": "NEVER",
+                "CMAKE_FIND_ROOT_PATH_MODE_LIBRARY": "ONLY",
+                "CMAKE_FIND_ROOT_PATH_MODE_INCLUDE": " ONLY",
+                "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": " ONLY",
+                "CMAKE_FIND_ROOT_PATH ": "$env{CROSS_ONLY_FIND_ROOT_PATH}",
+                "VCPKG_TARGET_TRIPLET": "$env{ARCH}-linux"
+            }
+        },
+        {
+            "name": "Cross-Release-Mingw-w64",
+            "displayName": "Cross-Release-Mingw-w64",
             "generator": "Unix Makefiles",
             "inherits": "Global",
             "toolchainFile": "$env{VCPKG_TOOLCHAIN_FILE}",
@@ -92,29 +137,14 @@
                 "CMAKE_CXX_COMPILER": "$env{CXX_COMPILER}",
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_MAKE_PROGRAM": "make",
+                "CMAKE_SYSTEM_NAME ": "$env{OS}",
+                "CMAKE_SYSTEM_PROCESSOR ": "$env{ARCH}",
+                "CMAKE_FIND_ROOT_PATH_MODE_PROGRAM  ": "NEVER",
+                "CMAKE_FIND_ROOT_PATH_MODE_LIBRARY": "ONLY",
+                "CMAKE_FIND_ROOT_PATH_MODE_INCLUDE": " ONLY",
+                "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": " ONLY",
+                "CMAKE_FIND_ROOT_PATH ": "$env{CROSS_ONLY_FIND_ROOT_PATH}",
                 "VCPKG_TARGET_TRIPLET": "$env{ARCH}-mingw-static"
-            }
-        },
-        {
-            "name": "Release-linux",
-            "displayName": "Release-linux",
-            "generator": "Unix Makefiles",
-            "inherits": "Global",
-            "toolchainFile": "$env{VCPKG_TOOLCHAIN_FILE}",
-            "installDir": "$env{INSTALL_PREFIX_LINUX}",
-            "architecture":{
-                "strategy": "set",
-                "value": "$env{ARCH}"
-            },
-            "environment": {
-                "charset": "UTF-8"
-            },
-            "cacheVariables": {
-                "CMAKE_C_COMPILER": "$env{C_COMPILER}",
-                "CMAKE_CXX_COMPILER": "$env{CXX_COMPILER}",
-                "CMAKE_MAKE_PROGRAM": "make",
-                "CMAKE_BUILD_TYPE": "Release",
-                "VCPKG_TARGET_TRIPLET": "$env{ARCH}-linux"
             }
         }
     ]
