@@ -243,31 +243,78 @@ void handle_segfault(int sig) { put_time_log(LOG_ERROR, "잘못된 메모리 접
 int main(int argc, char *argv[]) {
     signal(SIGSEGV, handle_segfault);
 
-    int option_index = 0;
-    int opt;
+    // 사용자 입력 모드
+    if (argc == 1) {
+        char dns[256];
+        char port[10];
+        int len;
 
-    // 실행 인자 파싱
-    while ((opt = getopt_long(argc, argv, "p:h", run_args, &option_index)) != -1) {
-        switch (opt) {
-            case 0:
-                if (strcmp(run_args[option_index].name, "dns") == 0) {
-                    parse_dns(optarg);
+        while (1) {
+            printf("포트번호 지정 (default: 1503): \n");
+            printf("(기본값을 원한다면 그냥 Enter입력)\n> ");
+            fgets(port, sizeof(port), stdin);
 
-                    if (!is_ip(SERVER_DNS.dns_1) || !is_ip(SERVER_DNS.dns_2)) {
-                        put_log(LOG_ERROR, "잘못된 DNS 주소");
-                        return 1;
-                    }
+            len = strlen(port);
+            port[len - 1] = '\0';
+
+            if (strlen(port) == 0) {
+                SERVER_PORT = 1503;
+            } else {
+                SERVER_PORT = atoi(port);
+            }
+
+            if (SERVER_PORT < 1 || SERVER_PORT > 65535) {
+                put_log(LOG_ERROR, "잘못된 포트번호\n");
+                continue;
+            }
+
+            printf("\n");
+            printf("DNS 주소 설정 (default: OS 기본 DNS 주소): \n");
+            printf("ex) 8.8.8.8,8.8.4.4\n");
+            printf("(기본값을 원한다면 그냥 Enter입력)\n> ");
+            fgets(dns, sizeof(dns), stdin);
+
+            len = strlen(dns);
+            dns[len - 1] = '\0';
+
+            if (strlen(dns) > 0) {
+                parse_dns(dns);
+                if (!is_ip(SERVER_DNS.dns_1) || !is_ip(SERVER_DNS.dns_2)) {
+                    put_log(LOG_ERROR, "잘못된 DNS 주소\n");
+                    continue;
                 }
-                break;
-            case 'p':
-                SERVER_PORT = atoi(optarg);
-                break;
-            case 'h':
-                print_help();
-                return 1;
-            default:
-                put_log(LOG_INFO, "'%s --help' 로 설명을 확인해 보세요.\n", argv[0]);
-                return 0;
+            }
+
+            printf("\n");
+            break;
+        }
+
+        // 실행 인자 모드
+    } else {
+        int option_index = 0;
+        int opt;
+        while ((opt = getopt_long(argc, argv, "p:h", run_args, &option_index)) != -1) {
+            switch (opt) {
+                case 0:
+                    if (strcmp(run_args[option_index].name, "dns") == 0) {
+                        parse_dns(optarg);
+
+                        if (!is_ip(SERVER_DNS.dns_1) || !is_ip(SERVER_DNS.dns_2)) {
+                            put_log(LOG_ERROR, "잘못된 DNS 주소");
+                            return 1;
+                        }
+                    }
+                    break;
+                case 'p':
+                    SERVER_PORT = atoi(optarg);
+                    break;
+                case 'h':
+                    print_help();
+                    return 1;
+                default:
+                    put_log(LOG_INFO, "'%s --help' 로 설명을 확인해 보세요.\n", argv[0]);
+                    return 0;
+            }
         }
     }
 
