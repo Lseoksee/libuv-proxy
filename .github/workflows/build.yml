@@ -6,9 +6,10 @@ env:
   EXCUTE_NAME:
 on:
   push:
+      branches: 
+        - main
       tags: 
         - "v*"
-      
 
 jobs:
   build:
@@ -21,6 +22,7 @@ jobs:
       CMAKE_ARCH:
       VCPKG_ARCH:
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
 
     strategy:
       matrix:
