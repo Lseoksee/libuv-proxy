@@ -6,10 +6,9 @@ env:
   EXCUTE_NAME:
 on:
   push:
-      branches: 
-        - main
       tags: 
         - "v*"
+      
 
 jobs:
   build:
