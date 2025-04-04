@@ -113,9 +113,6 @@
                 "CMAKE_MAKE_PROGRAM": "make",
                 "CMAKE_SYSTEM_PROCESSOR": "$env{CMAKE_ARCH}",
                 "CMAKE_FIND_ROOT_PATH_MODE_PROGRAM": "NEVER",
-                "CMAKE_FIND_ROOT_PATH_MODE_LIBRARY": "ONLY",
-                "CMAKE_FIND_ROOT_PATH_MODE_INCLUDE": "ONLY",
-                "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "ONLY",
                 "CMAKE_FIND_ROOT_PATH": "$env{CROSS_ONLY_FIND_ROOT_PATH}",
                 "VCPKG_TARGET_TRIPLET": "$env{VCPKG_ARCH}-linux"
             }
@@ -138,9 +135,6 @@
                 "CMAKE_MAKE_PROGRAM": "make",
                 "CMAKE_SYSTEM_PROCESSOR": "$env{CMAKE_ARCH}",
                 "CMAKE_FIND_ROOT_PATH_MODE_PROGRAM": "NEVER",
-                "CMAKE_FIND_ROOT_PATH_MODE_LIBRARY": "ONLY",
-                "CMAKE_FIND_ROOT_PATH_MODE_INCLUDE": "ONLY",
-                "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "ONLY",
                 "CMAKE_FIND_ROOT_PATH": "$env{CROSS_ONLY_FIND_ROOT_PATH}",
                 "VCPKG_TARGET_TRIPLET": "$env{VCPKG_ARCH}-mingw-static"
             }
