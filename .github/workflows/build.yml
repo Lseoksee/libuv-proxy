@@ -10,6 +10,7 @@ on:
         - main
       tags: 
         - "v*"
+  repository_dispatch: 
 
 jobs:
   build:
