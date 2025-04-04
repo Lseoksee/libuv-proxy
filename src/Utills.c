@@ -23,3 +23,14 @@ int is_ip(const char *input) {
     struct in6_addr ipv6;
     return inet_pton(AF_INET, input, &ipv4) || inet_pton(AF_INET6, input, &ipv6);
 }
+
+void removeSpace(char *str) {
+    char *src = str, *dst = str;
+    while (*src) {
+        if (*src != ' ') {
+            *dst++ = *src;
+        }
+        src++;
+    }
+    *dst = '\0';
+}

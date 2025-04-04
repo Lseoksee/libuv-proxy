@@ -21,21 +21,12 @@ Client *Create_client() {
 }
 
 void parse_dns(char *original) {
-    char res_buf[INET6_ADDRSTRLEN * 2 + 1];
-
     // 공백 재거
-    int search, res_index = 0;
-    for (search = 0; search < strlen(original); search++) {
-        if (original[search] != ' ') {
-            res_buf[res_index] = original[search];
-            res_index++;
-        }
-    }
-    res_buf[res_index] = '\0';
+    removeSpace(original);
 
     char *colon = strchr(original, ',');
     if (colon == NULL) {
-        SERVER_DNS.dns_1 = strdup(res_buf);
+        SERVER_DNS.dns_1 = strdup(original);
     } else {
         *colon = '\0';
         strchr(colon + 1, ',') ? *strchr(colon + 1, ',') = '\0' : 0;
@@ -253,6 +244,7 @@ int main(int argc, char *argv[]) {
             printf("포트번호 지정 (default: 1503): \n");
             printf("(기본값을 원한다면 그냥 Enter입력)\n> ");
             fgets(port, sizeof(port), stdin);
+            removeSpace(port);
 
             len = strlen(port);
             port[len - 1] = '\0';
@@ -273,6 +265,7 @@ int main(int argc, char *argv[]) {
             printf("ex) 8.8.8.8,8.8.4.4\n");
             printf("(기본값을 원한다면 그냥 Enter입력)\n> ");
             fgets(dns, sizeof(dns), stdin);
+            removeSpace(dns);
 
             len = strlen(dns);
             dns[len - 1] = '\0';
