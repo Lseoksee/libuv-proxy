@@ -10,23 +10,17 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 add_subdirectory(src)
 
 # 실행파일에 help.txt 파일 포함하기
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/res/help.txt" FILE_CONTENT)
+file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/embedded/Embedded_help.txt.h"
+    CONTENT "#pragma once\n\nconst char* HELP_TXT = R\"(${FILE_CONTENT})\";\n")
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/embedded)
+
+# 인코딩 설정
 if($ENV{charset} STREQUAL "UTF-8")
-    configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/res/help.txt
-        ${CMAKE_CURRENT_BINARY_DIR}/help.txt
-        COPYONLY
-    )
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexec-charset=UTF-8 -finput-charset=UTF-8")
 elseif($ENV{charset} STREQUAL "EUC-KR")
-    configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/res/help_euc-kr.txt
-        ${CMAKE_CURRENT_BINARY_DIR}/help.txt
-        COPYONLY
-    )
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexec-charset=EUC-KR")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexec-charset=EUC-KR -finput-charset=UTF-8")
 endif()
-set_target_properties(${PROJECT_NAME} PROPERTIES 
-    COMPILE_DEFINITIONS "DATA_FILE=\"${CMAKE_CURRENT_BINARY_DIR}/help.txt\""
-)
 
 # vcpkg 패키지 경로 설정
 # set(CMAKE_PREFIX_PATH "vcpkg_installed/vcpkg/pkgs/libuv_x64-windows/share/libuv")

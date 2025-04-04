@@ -1,19 +1,9 @@
+#include "Embedded_help.txt.h"
 #include "Global.h"
 #include "ServerLog.h"
 
 void print_help() {
-    FILE *file = fopen(DATA_FILE, "r");
-    if (file == NULL) {
-        return;
-    }
-
-    char buffer[256];
-    while (fgets(buffer, sizeof(buffer), file)) {
-        printf("%s", buffer);
-    }
-
-    fclose(file);
-    return;
+    printf("%s", HELP_TXT);
 }
 
 void put_log(LOG_TYPE log_type, const char *__restrict__ _Format, ...) {
