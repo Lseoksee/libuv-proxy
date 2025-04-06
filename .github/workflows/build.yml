@@ -155,7 +155,7 @@ jobs:
     - name: Rename exe File (linux)
       if: matrix.buid_os == 'linux'
       run: |
-        mv build/${{env.PRESET}}/uv_proxy ./uv_proxy-1.0-${{matrix.buid_os}}-${{matrix.buid_arch}}
+        mv build/${{env.PRESET}}/uv_proxy ./uv_proxy-${{env.TAG}}-${{matrix.buid_os}}-${{matrix.buid_arch}}
         echo "EXCUTE_NAME=uv_proxy-${{env.TAG}}-${{matrix.buid_os}}-${{matrix.buid_arch}}" >> $GITHUB_ENV
 
     - name: Release
