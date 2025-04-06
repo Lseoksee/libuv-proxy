@@ -30,9 +30,8 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             uv_shutdown(shutdown_req, client->proxyClient, on_shutdown);
         }
         return;
-    }
-
-    if (client->proxyClient == NULL || uv_is_closing((uv_handle_t *)client->proxyClient)) {
+    } else if (client->proxyClient == NULL || uv_is_closing((uv_handle_t *)client->proxyClient)) {
+        free(buf->base);
         return;
     }
 
