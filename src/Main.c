@@ -83,6 +83,7 @@ void on_dns(dns_response_t *dns) {
     }
 
     put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 서버에서 도메인을 찾을 수 없음, Code: %d", res.hostname, res.status);
+    unref_client(client);
 }
 
 /** 클라이언트 데이터 읽기 */
