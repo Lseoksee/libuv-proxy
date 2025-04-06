@@ -116,18 +116,8 @@ void on_dns_close(uv_handle_t* handle) {
 
 // UDP 메시지 수신 콜백
 void on_udp_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags) {
-    if (nread < 0) {
-        return;
-    }
-    if (nread == 0) {
-        free(buf->base);
-        return;
-    }
-
     dns_request_t* req = (dns_request_t*)handle->data;
-
-    // 이미 처리된 요청인지 확인
-    if (req == NULL) {
+    if (nread <= 0 || req == NULL) {
         free(buf->base);
         return;
     }

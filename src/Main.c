@@ -96,6 +96,8 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             put_ip_log(LOG_WARNING, client->ClientIP, "클라이언트 비정상 연결종료: 클라이언트 데이터 읽기 오류, Code: %s", uv_err_name(nread));
         }
 
+        // nreadr가 0인 상태에서도 alloc_buffer는 기본적으로 64KB 수준의 버퍼를 할당하기 때문에 free 안하면 누수 발생
+        free(buf->base);
         uv_close((uv_handle_t *)stream, close_cb);
 
         // 프록서 서버 클라이언트 연결 종료 시 타겟 서버에도 연결 종료 요청을 보냄
