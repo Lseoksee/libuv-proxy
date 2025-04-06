@@ -51,13 +51,15 @@ void on_dns(dns_response_t *dns) {
         int state = ConnectTargetServer(res.ip_address, atoi(res.port), client);
         if (state) {
             put_ip_log(LOG_ERROR, client->ClientIP, "%s 서버에 연결 실패, Code: %s", client->host, uv_strerror(state));
+            uv_close((uv_handle_t *)client->proxyClient, close_cb);
             unref_client(client);
             return;
+        } else {
+            put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", res.hostname);
+            client->state = 1;
         }
 
-        put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", res.hostname);
-        client->state = 1;
-        // dns 요청시 rc 감소용
+        // dns 요청시 rc 감소용 
         unref_client(client);
         return;
     } else {
@@ -82,7 +84,8 @@ void on_dns(dns_response_t *dns) {
         }
     }
 
-    put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 서버에서 도메인을 찾을 수 없음, Code: %d", res.hostname, res.status);
+    put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 서버에서 도메인을 찾을 수 없음, Code: %d, addr: %p", res.hostname, res.status, client);
+    uv_close((uv_handle_t *)client->proxyClient, close_cb);
     unref_client(client);
 }
 
@@ -92,9 +95,9 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
     if (nread <= 0) {
         if (nread == UV_EOF) {
-            put_ip_log(LOG_INFO, client->ClientIP, "클라이언트 연결종료");
+            put_ip_log(LOG_INFO, client->ClientIP, "클라이언트 연결종료, Target: %s", client->host);
         } else {
-            put_ip_log(LOG_WARNING, client->ClientIP, "클라이언트 비정상 연결종료: 클라이언트 데이터 읽기 오류, Code: %s", uv_err_name(nread));
+            put_ip_log(LOG_WARNING, client->ClientIP, "클라이언트 비정상 연결종료: 클라이언트 데이터 읽기 오류, Code: %s, Target: %s", uv_err_name(nread), client->host);
         }
 
         // nreadr가 0인 상태에서도 alloc_buffer는 기본적으로 64KB 수준의 버퍼를 할당하기 때문에 free 안하면 누수 발생
@@ -114,15 +117,15 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
     // 최초 연결 시
     if (client->state == 0) {
-        URL addr;
-        HttpRequest parseHeader;
+        URL addr = {0};
+        HttpRequest parseHeader = {0};
         dns_response_t dns = {0};
 
         addr_p = &addr;
         parseHeader_p = &parseHeader;
-        char ipaddr[INET6_ADDRSTRLEN];
+        char ipaddr[INET6_ADDRSTRLEN] = {0};
         char *host, *porxy = NULL;
-        int status;
+        int status = 0;
 
         parseHeader = parse_http_request(buf->base, buf->len);
 
@@ -151,7 +154,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         } else {
             // HTTP 연결
             if (host == NULL || porxy == NULL) {
-                put_ip_log(LOG_ERROR, client->ClientIP, "프록시 헤더를 찾을 수 없음");
+                put_ip_log(LOG_ERROR, client->ClientIP, "프록시 헤더를 찾을 수 없음, Target: %s", client->host);
                 freeHeader(parseHeader_p);
                 free(buf->base);
                 uv_close((uv_handle_t *)stream, close_cb);
