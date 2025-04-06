@@ -84,7 +84,7 @@ void on_dns(dns_response_t *dns) {
         }
     }
 
-    put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 서버에서 도메인을 찾을 수 없음, Code: %d, addr: %p", res.hostname, res.status, client);
+    put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 서버에서 도메인을 찾을 수 없음, Code: %d", res.hostname, res.status);
     uv_close((uv_handle_t *)client->proxyClient, close_cb);
     unref_client(client);
 }
