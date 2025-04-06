@@ -93,7 +93,7 @@ Wi-Fi 설정 -> 현재 접속된 Wi-Fi에 대한 설정 -> **프록시를 사용
 1. **Cmake & GCC & G++ & pkg-config 설치**
 
     ```bash
-    sudo apt install cmake gcc g++ pkg-config
+    sudo apt install cmake gcc g++ gdb pkg-config
     ```
 
 2. **vcpkg 설치**

@@ -261,6 +261,10 @@ int main(int argc, char *argv[]) {
             }
 
             printf("\n");
+            break;
+        }
+
+        while (1) {
             printf("DNS 주소 설정 (default: OS 기본 DNS 주소): \n");
             printf("ex) 8.8.8.8,8.8.4.4\n");
             printf("(기본값을 원한다면 그냥 Enter입력)\n> ");
@@ -272,7 +276,7 @@ int main(int argc, char *argv[]) {
 
             if (strlen(dns) > 0) {
                 parse_dns(dns);
-                if (!is_ip(SERVER_DNS.dns_1) || !is_ip(SERVER_DNS.dns_2)) {
+                if (!is_ip(SERVER_DNS.dns_1) || (SERVER_DNS.dns_2 != NULL && !is_ip(SERVER_DNS.dns_2))) {
                     put_log(LOG_ERROR, "잘못된 DNS 주소\n");
                     continue;
                 }
@@ -291,8 +295,7 @@ int main(int argc, char *argv[]) {
                 case 0:
                     if (strcmp(run_args[option_index].name, "dns") == 0) {
                         parse_dns(optarg);
-
-                        if (!is_ip(SERVER_DNS.dns_1) || !is_ip(SERVER_DNS.dns_2)) {
+                        if (!is_ip(SERVER_DNS.dns_1) || (SERVER_DNS.dns_2 != NULL && !is_ip(SERVER_DNS.dns_2))) {
                             put_log(LOG_ERROR, "잘못된 DNS 주소");
                             return 1;
                         }
