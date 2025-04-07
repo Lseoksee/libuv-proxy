@@ -51,7 +51,8 @@ void on_dns(dns_response_t *dns) {
         int state = ConnectTargetServer(res.ip_address, atoi(res.port), client);
         if (state) {
             put_ip_log(LOG_ERROR, client->ClientIP, "%s 서버에 연결 실패, Code: %s", client->host, uv_strerror(state));
-            uv_close((uv_handle_t *)client->proxyClient, close_cb);
+            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
+            uv_shutdown(shutdown_req, client->proxyClient, on_shutdown);
             unref_client(client);
             return;
         } else {
@@ -85,7 +86,8 @@ void on_dns(dns_response_t *dns) {
     }
 
     put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 서버에서 도메인을 찾을 수 없음, Code: %d", res.hostname, res.status);
-    uv_close((uv_handle_t *)client->proxyClient, close_cb);
+    uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
+    uv_shutdown(shutdown_req, client->proxyClient, on_shutdown);
     unref_client(client);
 }
 
@@ -133,7 +135,8 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             put_ip_log(LOG_ERROR, client->ClientIP, "허용되지 않는 연결, HTTP 해더 파싱 실패");
             freeHeader(parseHeader_p);
             free(buf->base);
-            uv_close((uv_handle_t *)stream, close_cb);
+            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
+            uv_shutdown(shutdown_req, stream, on_shutdown);
             return;
         }
 
@@ -157,7 +160,8 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
                 put_ip_log(LOG_ERROR, client->ClientIP, "프록시 헤더를 찾을 수 없음, Target: %s", client->host);
                 freeHeader(parseHeader_p);
                 free(buf->base);
-                uv_close((uv_handle_t *)stream, close_cb);
+                uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
+                uv_shutdown(shutdown_req, stream, on_shutdown);
                 return;
             }
 

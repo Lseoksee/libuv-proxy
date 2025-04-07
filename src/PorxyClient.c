@@ -53,7 +53,8 @@ void on_connect_porxy(uv_connect_t *req, int status) {
 
     if (status < 0) {
         put_ip_log(LOG_WARNING, client->ClientIP, "%s 서버측 연결 오류, Code: %s", client->host, uv_strerror(status));
-        uv_close((uv_handle_t *)req->handle, close_cb);
+        uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
+        uv_shutdown(shutdown_req, req->handle, on_shutdown);
         return;
     }
 
