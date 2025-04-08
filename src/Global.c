@@ -13,13 +13,12 @@ void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 void close_cb(uv_handle_t *handle) {
     Client *client = (Client *)handle->data;
 
-    if (client->proxyClient == (uv_stream_t *)handle) {
-        client->proxyClient = NULL;
-    } else if (client->targetClient == (uv_stream_t *)handle) {
-        client->targetClient = NULL;
+    if (&client->proxyClient == (uv_tcp_t *)handle) {
+        client->proxyClient.data = NULL;
+    } else if (&client->targetClient == (uv_tcp_t *)handle) {
+        client->targetClient.data = NULL;
     }
 
-    free(handle);
     unref_client(client);
 }
 
@@ -32,11 +31,10 @@ void on_shutdown(uv_shutdown_t *req, int status) { free(req); }
 
 void ref_client(Client *client) { client->ref_count++; }
 
-void unref_client(Client *client) { 
-    client->ref_count--; 
+void unref_client(Client *client) {
+    client->ref_count--;
     if (client->ref_count == 0) {
         free(client->host);
-        free(client->target_connecter);
         free(client);
     }
 }

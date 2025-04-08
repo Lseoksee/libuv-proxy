@@ -25,12 +25,12 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         uv_close((uv_handle_t *)stream, close_cb);
 
         // 타겟 서버 연결 종료 시 클라이언트에게도 연결 종료 요청을 보냄
-        if (client->proxyClient != NULL) {
+        if (!uv_is_closing((uv_handle_t *)&client->proxyClient)) {
             uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-            uv_shutdown(shutdown_req, client->proxyClient, on_shutdown);
+            uv_shutdown(shutdown_req, (uv_stream_t *)&client->proxyClient, on_shutdown);
         }
         return;
-    } else if (client->proxyClient == NULL || uv_is_closing((uv_handle_t *)client->proxyClient)) {
+    } else if (uv_is_closing((uv_handle_t *)&client->proxyClient)) {
         free(buf->base);
         return;
     }
@@ -39,7 +39,7 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     uv_buf_t resBuffer = uv_buf_init(buf->base, nread);
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
     write_req->data = resBuffer.base;
-    int state = uv_write(write_req, client->proxyClient, &resBuffer, 1, on_write);
+    int state = uv_write(write_req, (uv_stream_t *)&client->proxyClient, &resBuffer, 1, on_write);
     if (state) {
         put_ip_log(LOG_ERROR, client->ClientIP, "%s 클라이언트 측에 데이터 전송 실패, Code: %s", client->host, uv_strerror(state));
         free(write_req->data);
@@ -58,11 +58,11 @@ void on_connect_porxy(uv_connect_t *req, int status) {
         return;
     }
 
-    if (client->proxyClient == NULL || uv_is_closing((uv_handle_t *)client->proxyClient)) {
+    if (uv_is_closing((uv_handle_t *)&client->proxyClient)) {
         return;
     }
 
-    uv_read_start(client->targetClient, alloc_buffer, read_data_porxy);
+    uv_read_start((uv_stream_t *)&client->targetClient, alloc_buffer, read_data_porxy);
 
     uv_buf_t resBuffer;
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
@@ -72,11 +72,11 @@ void on_connect_porxy(uv_connect_t *req, int status) {
         // strdup을 쓰는 이유는 on_write_porxy에서 메모리를 free 시키는데 established는 스택 영역에 선언된 상수라서 free 시키면 오류가 발생함
         resBuffer = uv_buf_init(strdup(established), strlen(established));
         write_req->data = resBuffer.base;
-        state = uv_write(write_req, client->proxyClient, &resBuffer, 1, on_write);
+        state = uv_write(write_req, (uv_stream_t *)&client->proxyClient, &resBuffer, 1, on_write);
     } else if (client->connect_mode == PROXY_HTTP) {
         resBuffer = client->send_buf;
         write_req->data = resBuffer.base;
-        state = uv_write(write_req, client->targetClient, &resBuffer, 1, on_write);
+        state = uv_write(write_req, (uv_stream_t *)&client->targetClient, &resBuffer, 1, on_write);
     }
 
     if (state) {
@@ -91,7 +91,7 @@ void sendTargetServer(uv_stream_t *clientStream, const char *buf, ssize_t nread)
     // INFO: 타겟 서버가 종료가 되었는데, 문제는 비동기 특성으로 인해 sendTargetServer가 먼저 호출되고
     //  uv_is_closing() 함수가 실행 한 도중에 targetClient가 메모리에서 free되면 Segmentation fault 애러가 발생함
     // 지금은 해당현상이 발생할 확률이 현저히 낮지만 만약 추후 발생하면 이 문제를 살펴봐야함
-    if (client->targetClient == NULL || uv_is_closing((uv_handle_t *)client->targetClient)) {
+    if (uv_is_closing((uv_handle_t *)&client->targetClient)) {
         return;
     }
 
@@ -103,7 +103,7 @@ void sendTargetServer(uv_stream_t *clientStream, const char *buf, ssize_t nread)
     // 프록시 서버에 연결된 클라이언트의 요청을 대상 서버에 전달
     uv_write_t *write_req = (uv_write_t *)malloc(sizeof(uv_write_t));
     write_req->data = resBuffer.base;
-    int state = uv_write(write_req, client->targetClient, &resBuffer, 1, on_write);
+    int state = uv_write(write_req, (uv_stream_t *)&client->targetClient, &resBuffer, 1, on_write);
     if (state) {
         put_ip_log(LOG_ERROR, client->ClientIP, "%s 서버 측에 데이터 전송 실패, Code: %s", client->host, uv_strerror(state));
         free(write_req->data);
@@ -114,23 +114,14 @@ void sendTargetServer(uv_stream_t *clientStream, const char *buf, ssize_t nread)
 int ConnectTargetServer(char *addr, int port, Client *client) {
     struct sockaddr_in dest;
 
-    uv_tcp_t *ClientHandle = (uv_tcp_t *)malloc(sizeof(uv_tcp_t));
-    uv_connect_t *connecter = (uv_connect_t *)malloc(sizeof(uv_connect_t));
-
     int state;
-    state = uv_tcp_init(mainLoop, ClientHandle);
+    state = uv_tcp_init(mainLoop, &client->targetClient);
     state = uv_ip4_addr(addr, port, &dest);
-    state = uv_tcp_connect(connecter, ClientHandle, (const struct sockaddr *)&dest, on_connect_porxy);
+    state = uv_tcp_connect(&client->target_connecter, &client->targetClient, (const struct sockaddr *)&dest, on_connect_porxy);
     if (state) {
-        free(ClientHandle);
-        free(connecter);
         return state;
     }
 
-    client->target_connecter = connecter;
-    client->targetClient = connecter->handle;
-
-    // INFO: uv_stream_t의 data는 개발자가 직접 할당 할 수 있다. 이를 이용해서 생성한 client 구조체를 보관한다
-    client->targetClient->data = client;
+    // client->targetClient = connecter->handle;
     return 0;
 }

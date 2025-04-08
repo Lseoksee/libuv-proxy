@@ -17,6 +17,10 @@ uv_loop_t *loop;
 Client *Create_client() {
     Client *client_data = (Client *)malloc(sizeof(Client));
     memset(client_data, 0, sizeof(Client));
+    // INFO: uv_stream_t의 data는 개발자가 직접 할당 할 수 있다. 이를 이용해서 생성한 client 구조체를 보관한다
+    client_data->proxyClient.data = client_data;
+    client_data->targetClient.data = client_data;
+    client_data->timeout_timer.data = client_data;
     return client_data;
 }
 
@@ -40,7 +44,7 @@ void on_dns(dns_response_t *dns) {
     dns_response_s res = dns->dns_response;
 
     // DNS 요청을 완료 했지만 이미 소켓이 닫혀버린 경우 처리
-    if (client->proxyClient == NULL || uv_is_closing((uv_handle_t *)client->proxyClient)) {
+    if (uv_is_closing((uv_handle_t *)&client->proxyClient)) {
         unref_client(client);
         return;
     }
@@ -52,7 +56,7 @@ void on_dns(dns_response_t *dns) {
         if (state) {
             put_ip_log(LOG_ERROR, client->ClientIP, "%s 서버에 연결 실패, Code: %s", client->host, uv_strerror(state));
             uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-            uv_shutdown(shutdown_req, client->proxyClient, on_shutdown);
+            uv_shutdown(shutdown_req, (uv_stream_t *)&client->proxyClient, on_shutdown);
             unref_client(client);
             return;
         } else {
@@ -60,7 +64,7 @@ void on_dns(dns_response_t *dns) {
             client->state = 1;
         }
 
-        // dns 요청시 rc 감소용 
+        // dns 요청시 rc 감소용
         unref_client(client);
         return;
     } else {
@@ -87,7 +91,7 @@ void on_dns(dns_response_t *dns) {
 
     put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 서버에서 도메인을 찾을 수 없음, Code: %d", res.hostname, res.status);
     uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-    uv_shutdown(shutdown_req, client->proxyClient, on_shutdown);
+    uv_shutdown(shutdown_req, (uv_stream_t *)&client->proxyClient, on_shutdown);
     unref_client(client);
 }
 
@@ -107,9 +111,10 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         uv_close((uv_handle_t *)stream, close_cb);
 
         // 프록서 서버 클라이언트 연결 종료 시 타겟 서버에도 연결 종료 요청을 보냄
-        if (client->targetClient != NULL) {
+
+        if (!uv_is_closing((uv_handle_t *)&client->targetClient)) {
             uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-            uv_shutdown(shutdown_req, client->targetClient, on_shutdown);
+            uv_shutdown(shutdown_req, (uv_stream_t *)&client->targetClient, on_shutdown);
         }
         return;
     }
@@ -217,25 +222,23 @@ void on_new_connection(uv_stream_t *server, int status) {
         return;
     }
 
-    uv_tcp_t *client = (uv_tcp_t *)malloc(sizeof(uv_tcp_t));
-    uv_tcp_init(loop, client);
-    if (uv_accept(server, (uv_stream_t *)client) == 0) {
-        Client *client_data = Create_client();
-        client_data->proxyClient = (uv_stream_t *)client;
-        ref_client(client_data);
-        client->data = client_data;
+    Client *client_data = Create_client();
+    // proxyClient 소켓이 활성화 됨
+    ref_client(client_data);
+    uv_tcp_init(loop, &client_data->proxyClient);
 
-        get_client_ip((uv_stream_t *)client, client_data->ClientIP, sizeof(client_data->ClientIP));
-        int state = uv_read_start((uv_stream_t *)client, alloc_buffer, read_data);
+    if (uv_accept(server, (uv_stream_t *) &client_data->proxyClient) == 0) {
+        get_client_ip((uv_stream_t *)&client_data->proxyClient, client_data->ClientIP, sizeof(client_data->ClientIP));
+        int state = uv_read_start((uv_stream_t *)&client_data->proxyClient, alloc_buffer, read_data);
         if (state) {
             put_ip_log(LOG_ERROR, client_data->ClientIP, "프록시 연결 실패, Code: %s", uv_strerror(state));
-            uv_close((uv_handle_t *)client, close_cb);
+            uv_close((uv_handle_t *)&client_data->proxyClient, close_cb);
         } else {
             put_ip_log(LOG_INFO, client_data->ClientIP, "프록시 연결 완료");
         }
     } else {
         put_time_log(LOG_ERROR, "프록시 연결오류: accept 실패");
-        uv_close((uv_handle_t *)client, close_cb);
+        uv_close((uv_handle_t *)&client_data->proxyClient, close_cb);
     }
 }
 
