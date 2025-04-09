@@ -210,7 +210,7 @@ void on_udp_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const str
 }
 
 // 타임아웃 콜백
-void on_timeout(uv_timer_t* timer) {
+void on_dns_timeout(uv_timer_t* timer) {
     dns_request_t* req = (dns_request_t*)timer->data;
 
     if (req != NULL) {
@@ -274,8 +274,8 @@ int send_dns_query(uv_loop_t* loop, char* hostname, char* port, char* dns_server
         return -3;
     }
 
-    // 타임아웃 타이머 시작
-    uv_timer_start(&req->timeout_timer.timer, on_timeout, timeout, 0);
+    // DNS 타임아웃 타이머 시작
+    uv_timer_start(&req->timeout_timer.timer, on_dns_timeout, timeout, 0);
 
     // DNS 쿼리 패킷 생성
     unsigned char dns_packet[512];  // DNS 패킷 최대 크기

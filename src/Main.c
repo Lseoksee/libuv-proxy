@@ -14,13 +14,11 @@ extern struct option run_args[];
 /** 서버 구동체 */
 uv_loop_t *loop;
 
+int Client_Count = 0;
 Client *Create_client() {
     Client *client_data = (Client *)malloc(sizeof(Client));
     memset(client_data, 0, sizeof(Client));
-    // INFO: uv_stream_t의 data는 개발자가 직접 할당 할 수 있다. 이를 이용해서 생성한 client 구조체를 보관한다
-    client_data->proxyClient.data = client_data;
-    client_data->targetClient.data = client_data;
-    client_data->timeout_timer.data = client_data;
+    Client_Count++;
     return client_data;
 }
 
@@ -44,7 +42,7 @@ void on_dns(dns_response_t *dns) {
     dns_response_s res = dns->dns_response;
 
     // DNS 요청을 완료 했지만 이미 소켓이 닫혀버린 경우 처리
-    if (uv_is_closing((uv_handle_t *)&client->proxyClient)) {
+    if (client->proxyClient.data == NULL || uv_is_closing((uv_handle_t *)&client->proxyClient)) {
         unref_client(client);
         return;
     }
@@ -55,8 +53,7 @@ void on_dns(dns_response_t *dns) {
         int state = ConnectTargetServer(res.ip_address, atoi(res.port), client);
         if (state) {
             put_ip_log(LOG_ERROR, client->ClientIP, "%s 서버에 연결 실패, Code: %s", client->host, uv_strerror(state));
-            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-            uv_shutdown(shutdown_req, (uv_stream_t *)&client->proxyClient, on_shutdown);
+            uv_close((uv_handle_t *)&client->proxyClient, close_cb);
             unref_client(client);
             return;
         } else {
@@ -90,14 +87,14 @@ void on_dns(dns_response_t *dns) {
     }
 
     put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 서버에서 도메인을 찾을 수 없음, Code: %d", res.hostname, res.status);
-    uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-    uv_shutdown(shutdown_req, (uv_stream_t *)&client->proxyClient, on_shutdown);
+    uv_close((uv_handle_t *)&client->proxyClient, close_cb);
     unref_client(client);
 }
 
 /** 클라이언트 데이터 읽기 */
 void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     Client *client = (Client *)stream->data;
+    uv_timer_again(&client->timeout_timer);
 
     if (nread <= 0) {
         if (nread == UV_EOF) {
@@ -111,8 +108,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         uv_close((uv_handle_t *)stream, close_cb);
 
         // 프록서 서버 클라이언트 연결 종료 시 타겟 서버에도 연결 종료 요청을 보냄
-
-        if (!uv_is_closing((uv_handle_t *)&client->targetClient)) {
+        if (client->targetClient.data != NULL && !uv_is_closing((uv_handle_t *)&client->targetClient)) {
             uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
             uv_shutdown(shutdown_req, (uv_stream_t *)&client->targetClient, on_shutdown);
         }
@@ -140,8 +136,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             put_ip_log(LOG_ERROR, client->ClientIP, "허용되지 않는 연결, HTTP 해더 파싱 실패");
             freeHeader(parseHeader_p);
             free(buf->base);
-            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-            uv_shutdown(shutdown_req, stream, on_shutdown);
+            uv_close((uv_handle_t *)stream, close_cb);
             return;
         }
 
@@ -165,8 +160,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
                 put_ip_log(LOG_ERROR, client->ClientIP, "프록시 헤더를 찾을 수 없음, Target: %s", client->host);
                 freeHeader(parseHeader_p);
                 free(buf->base);
-                uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-                uv_shutdown(shutdown_req, stream, on_shutdown);
+                uv_close((uv_handle_t *)stream, close_cb);
                 return;
             }
 
@@ -216,6 +210,21 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     free(buf->base);
 }
 
+void on_timeout(uv_timer_t *handle) {
+    Client *client = (Client *)handle->data;
+
+    put_ip_log(LOG_WARNING, client->ClientIP, "프록시 연결 타임아웃, Target: %s", client->host);
+
+    // INFO: uv_timer_stop 먼저 호출 안하면 uv_timer_again이 호출될 수 있음
+    uv_timer_stop(handle);
+    if (client->proxyClient.data != NULL && !uv_is_closing((uv_handle_t *)&client->proxyClient)) {
+        uv_close((uv_handle_t *)&client->proxyClient, close_cb);
+    }
+    if (client->targetClient.data != NULL && !uv_is_closing((uv_handle_t *)&client->targetClient)) {
+        uv_close((uv_handle_t *)&client->targetClient, close_cb);
+    }
+}
+
 void on_new_connection(uv_stream_t *server, int status) {
     if (status < 0) {
         put_time_log(LOG_ERROR, "프록시 연결오류: %s", uv_strerror(status));
@@ -223,12 +232,21 @@ void on_new_connection(uv_stream_t *server, int status) {
     }
 
     Client *client_data = Create_client();
-    // proxyClient 소켓이 활성화 됨
+    // proxyClient 소켓이 활성화 됨 ref
     ref_client(client_data);
     uv_tcp_init(loop, &client_data->proxyClient);
 
-    if (uv_accept(server, (uv_stream_t *) &client_data->proxyClient) == 0) {
+    if (uv_accept(server, (uv_stream_t *)&client_data->proxyClient) == 0) {
         get_client_ip((uv_stream_t *)&client_data->proxyClient, client_data->ClientIP, sizeof(client_data->ClientIP));
+        // INFO: uv_stream_t의 data는 개발자가 직접 할당 할 수 있다. 이를 이용해서 생성한 client 구조체를 보관한다
+        // targetClient.data는 ConnectTargetServer에서 할당
+        client_data->proxyClient.data = client_data;
+        client_data->timeout_timer.data = client_data;
+        uv_timer_init(loop, &client_data->timeout_timer);
+        uv_timer_start(&client_data->timeout_timer, on_timeout, 10000, 0);
+        // 타임아웃 타이머 작동 ref
+        ref_client(client_data);
+
         int state = uv_read_start((uv_stream_t *)&client_data->proxyClient, alloc_buffer, read_data);
         if (state) {
             put_ip_log(LOG_ERROR, client_data->ClientIP, "프록시 연결 실패, Code: %s", uv_strerror(state));
