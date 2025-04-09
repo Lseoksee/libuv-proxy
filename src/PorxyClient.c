@@ -30,7 +30,6 @@ void read_data_porxy(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
         // 타겟 서버 연결 종료 시 클라이언트에게도 연결 종료 요청을 보냄
         if (client->proxyClient.data != NULL && !uv_is_closing((uv_handle_t *)&client->proxyClient)) {
-            put_ip_log(LOG_INFO, client->ClientIP, "%s 클라이언트 측에 uv_shutdown_t", client->host);
             uv_close((uv_handle_t *)&client->proxyClient, close_cb);
         }
         return;
@@ -56,7 +55,7 @@ void on_connect_porxy(uv_connect_t *req, int status) {
     Client *client = (Client *)req->data;
 
     if (status < 0) {
-        put_ip_log(LOG_WARNING, client->ClientIP, "%s 서버측 연결 오류, Code: %s", client->host, uv_strerror(status));
+        put_ip_log(LOG_WARNING, client->ClientIP, "%s 서버 연결 오류, Code: %s", client->host, uv_strerror(status));
         // on_connect_porxy 에 도달 하기 이전에 proxyClient가 종료된경우 read_data에 nread <= 0 조건 내부 로직으로 targetClient도 종료됨경우가 있음
         // 이경우 여기 로직이 실행 되는데 이때 그냥 uv_close() 해버리면 중복 호출이 되버리므로 한번 체크하고 들어가야함
         if (client->targetClient.data != NULL && !uv_is_closing((uv_handle_t *)&client->targetClient)) {
@@ -67,6 +66,8 @@ void on_connect_porxy(uv_connect_t *req, int status) {
         }
         return;
     }
+
+    put_ip_log(LOG_INFO, client->ClientIP, "%s 서버 접속", client->host);
 
     // INFO: 반드시 uv_read_start가 위에 있어야함
     uv_read_start((uv_stream_t *)&client->targetClient, alloc_buffer, read_data_porxy);

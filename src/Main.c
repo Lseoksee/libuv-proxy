@@ -6,6 +6,7 @@
 #include "ServerLog.h"
 #include "Utills.h"
 
+// 실행 인자 부분
 extern DnsOptions SERVER_DNS;
 extern int SERVER_PORT;
 extern int SERVER_TIMEOUT;
@@ -14,14 +15,13 @@ extern struct option run_args[];
 /** 서버 구동체 */
 uv_loop_t *loop;
 
-/** DNS 타임아웃 시간 */
-int dns_timeout = 3000;
+extern int dns_timeout;
+extern int client_count;
 
-int Client_Count = 0;
 Client *Create_client() {
     Client *client_data = (Client *)malloc(sizeof(Client));
     memset(client_data, 0, sizeof(Client));
-    Client_Count++;
+    client_count++;
     return client_data;
 }
 
@@ -60,7 +60,6 @@ void on_dns(dns_response_t *dns) {
             unref_client(client);
             return;
         } else {
-            put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", res.hostname);
             client->state = 1;
         }
 
@@ -201,7 +200,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
                 put_ip_log(LOG_ERROR, client->ClientIP, "%s 서버에 연결 실패, Code: %s", client->host, uv_strerror(state));
                 unref_client(client);
             } else {
-                put_ip_log(LOG_INFO, client->ClientIP, "%s 접속", addr.url);
+                client->state = 1;
             }
         }
     }
