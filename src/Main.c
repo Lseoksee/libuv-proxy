@@ -6,13 +6,16 @@
 #include "ServerLog.h"
 #include "Utills.h"
 
-// 실행인자 DNS용
 extern DnsOptions SERVER_DNS;
 extern int SERVER_PORT;
+extern int SERVER_TIMEOUT;
 extern struct option run_args[];
 
 /** 서버 구동체 */
 uv_loop_t *loop;
+
+/** DNS 타임아웃 시간 */
+int dns_timeout = 3000;
 
 int Client_Count = 0;
 Client *Create_client() {
@@ -94,7 +97,10 @@ void on_dns(dns_response_t *dns) {
 /** 클라이언트 데이터 읽기 */
 void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     Client *client = (Client *)stream->data;
-    uv_timer_again(&client->timeout_timer);
+
+    if (SERVER_TIMEOUT != 0) {
+        uv_timer_again(&client->timeout_timer);
+    }
 
     if (nread <= 0) {
         if (nread == UV_EOF) {
@@ -109,8 +115,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
         // 프록서 서버 클라이언트 연결 종료 시 타겟 서버에도 연결 종료 요청을 보냄
         if (client->targetClient.data != NULL && !uv_is_closing((uv_handle_t *)&client->targetClient)) {
-            uv_shutdown_t *shutdown_req = (uv_shutdown_t *)malloc(sizeof(uv_shutdown_t));
-            uv_shutdown(shutdown_req, (uv_stream_t *)&client->targetClient, on_shutdown);
+            uv_close((uv_handle_t *)&client->targetClient, close_cb);
         }
         return;
     }
@@ -182,7 +187,7 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
             }
             // 실행 인자 DNS 서버 사용
             else {
-                status = send_dns_query(loop, addr.url, addr.port, SERVER_DNS.dns_1, 1, 5000, client, on_dns);
+                status = send_dns_query(loop, addr.url, addr.port, SERVER_DNS.dns_1, 1, dns_timeout, client, on_dns);
             }
 
             if (status != 1) {
@@ -241,11 +246,14 @@ void on_new_connection(uv_stream_t *server, int status) {
         // INFO: uv_stream_t의 data는 개발자가 직접 할당 할 수 있다. 이를 이용해서 생성한 client 구조체를 보관한다
         // targetClient.data는 ConnectTargetServer에서 할당
         client_data->proxyClient.data = client_data;
-        client_data->timeout_timer.data = client_data;
-        uv_timer_init(loop, &client_data->timeout_timer);
-        uv_timer_start(&client_data->timeout_timer, on_timeout, 10000, 0);
-        // 타임아웃 타이머 작동 ref
-        ref_client(client_data);
+
+        if (SERVER_TIMEOUT != 0) {
+            client_data->timeout_timer.data = client_data;
+            uv_timer_init(loop, &client_data->timeout_timer);
+            uv_timer_start(&client_data->timeout_timer, on_timeout, SERVER_TIMEOUT, 0);
+            // 타임아웃 타이머 작동 ref
+            ref_client(client_data);
+        }
 
         int state = uv_read_start((uv_stream_t *)&client_data->proxyClient, alloc_buffer, read_data);
         if (state) {
@@ -321,7 +329,7 @@ int main(int argc, char *argv[]) {
     } else {
         int option_index = 0;
         int opt;
-        while ((opt = getopt_long(argc, argv, "p:h", run_args, &option_index)) != -1) {
+        while ((opt = getopt_long(argc, argv, "p:ht:", run_args, &option_index)) != -1) {
             switch (opt) {
                 case 0:
                     if (strcmp(run_args[option_index].name, "dns") == 0) {
@@ -333,7 +341,18 @@ int main(int argc, char *argv[]) {
                     }
                     break;
                 case 'p':
+                    if (atoi(optarg) < 1 || atoi(optarg) > 65535) {
+                        put_log(LOG_ERROR, "잘못된 포트번호\n");
+                        return 1;
+                    }
                     SERVER_PORT = atoi(optarg);
+                    break;
+                case 't':
+                    if (atoi(optarg) < 0) {
+                        put_log(LOG_ERROR, "잘못된 타임아웃 값\n");
+                        return 1;
+                    }
+                    SERVER_TIMEOUT = atoi(optarg) * 1000;
                     break;
                 case 'h':
                     print_help();
@@ -368,6 +387,7 @@ int main(int argc, char *argv[]) {
         put_log(LOG_INFO, "DNS: %s,%s", SERVER_DNS.dns_1, SERVER_DNS.dns_2 ? SERVER_DNS.dns_2 : "");
     }
     put_log(LOG_INFO, "포트: %d", SERVER_PORT);
+    put_log(LOG_INFO, "타임아웃 시간: %d초", SERVER_TIMEOUT / 1000);
     put_log(LOG_INFO, "");
 
     return uv_run(loop, UV_RUN_DEFAULT);

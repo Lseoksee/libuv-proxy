@@ -38,6 +38,7 @@ typedef struct {
     uv_buf_t send_buf;
     /** 메모리 할당 헤제용 */
     uv_connect_t target_connecter;
+    /** 타임아웃 타이머 */
     uv_timer_t timeout_timer;
     /** 레퍼런스 카운트 */
     int ref_count;

@@ -4,9 +4,10 @@
 
 int SERVER_PORT = 1503;
 DnsOptions SERVER_DNS = {NULL};
+int SERVER_TIMEOUT = 30000;
 extern int Client_Count;
 
-struct option run_args[] = {{"port", required_argument, 0, 'p'}, {"dns", required_argument, 0, 0}, {"help", no_argument, 0, 'h'}, {0, 0, 0, 0}};
+struct option run_args[] = {{"port", required_argument, 0, 'p'}, {"dns", required_argument, 0, 0}, {"timeout", no_argument, 0, 't'}, {"help", no_argument, 0, 'h'}, {0, 0, 0, 0}};
 
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
     buf->base = (char *)malloc(suggested_size);

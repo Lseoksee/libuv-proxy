@@ -27,6 +27,9 @@ libuv로 간단한 크로스 플렛폼 HTTP 프록시 서버 구현
 [--dns <DNS 주소1,DNS 주소2>]: DNS 서버를 변경합니다. (default: 기본 DNS 주소)
  > ex) --dns 1.1.1.1,8.8.8.8  또는 --dns 1.1.1.1
 
+[--timeout, -t <시간(초)>]: 프록시 서버에 타임아웃 시간을 지정합니다. '0' 이면 프록시 서버에 타임아웃을 지정하지 않습니다. (default: 30)
+> 다만 '0' 지정은 권장하지 않습니다.
+ 
 [--help, -h]: 해당 화면을 출력합니다.
 ```
 
@@ -63,7 +66,7 @@ Wi-Fi 설정 -> 현재 접속된 Wi-Fi에 대한 설정 -> **프록시를 사용
 
 3. **프로젝트 폴더로 이동**
 
-4. **`CMakePresets.json` 파일을 열러 `environment` 부분을 본인에 환경에 맞게 수정**
+4. **`CMakePresets.json` 파일을 열어 `environment` 부분을 본인에 환경에 맞게 수정**
 
     - 각 값에 대한 설명은 아래 [environment값 설명](#environment값-설명) 참고
 
@@ -128,7 +131,7 @@ Wi-Fi 설정 -> 현재 접속된 Wi-Fi에 대한 설정 -> **프록시를 사용
 
 3. **프로젝트 폴더로 이동**
 
-4. **`CMakePresets.json` 파일을 열러 `environment` 부분을 본인에 환경에 맞게 수정**
+4. **`CMakePresets.json` 파일을 열어 `environment` 부분을 본인에 환경에 맞게 수정**
 
     - 각 값에 대한 설명은 아래 [environment값 설명](#environment값-설명) 참고
 
