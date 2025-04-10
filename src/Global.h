@@ -49,6 +49,18 @@ typedef struct {
     char *dns_2;
 } DnsOptions;
 
+typedef struct ServerConfig {
+    /** 서버 포트 */
+    int port;
+    /** DNS 서버 주소 */
+    DnsOptions dns;
+    /** DNS 타임아웃 시간 (ms) */
+    int timeOut;
+    /**  */
+    int noLog;
+    char *logFile;
+} ServerConfig;
+
 /** 연결 요청 대기 큐 최대길이 (리눅스 기본값 128개) */
 #define DEFAULT_BACKLOG 128
 

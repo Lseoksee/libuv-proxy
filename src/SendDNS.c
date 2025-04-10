@@ -1,4 +1,5 @@
 #include "Global.h"
+
 #include "SendDNS.h"
 
 int send_default_dns(uv_loop_t* loop, char* hostname, const char* port, Client* client, dns_query_cb cb) {
@@ -191,8 +192,10 @@ void on_udp_read(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const str
                 if (ip_type == 1 && ip_length == 4) {  // A 레코드 (IPv4)
                     sprintf(req->res.dns_response.ip_address, "%d.%d.%d.%d", ptr[0], ptr[1], ptr[2], ptr[3]);
                 } else if (ip_type == 28 && ip_length == 16) {  // AAAA 레코드 (IPv6)
-                    sprintf(req->res.dns_response.ip_address, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5], ptr[6], ptr[7],
-                            ptr[8], ptr[9], ptr[10], ptr[11], ptr[12], ptr[13], ptr[14], ptr[15]);
+                    sprintf(req->res.dns_response.ip_address,
+                            "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x", ptr[0], ptr[1],
+                            ptr[2], ptr[3], ptr[4], ptr[5], ptr[6], ptr[7], ptr[8], ptr[9], ptr[10], ptr[11], ptr[12],
+                            ptr[13], ptr[14], ptr[15]);
                 }
             } else {
                 req->res.dns_response.status = -2;
@@ -226,7 +229,8 @@ void on_dns_timeout(uv_timer_t* timer) {
 // UDP 전송 콜백
 void on_udp_send(uv_udp_send_t* req, int status) { free(req); }
 
-int send_dns_query(uv_loop_t* loop, char* hostname, char* port, char* dns_server, int query_type, uint64_t timeout, Client* client, dns_query_cb cb) {
+int send_dns_query(uv_loop_t* loop, char* hostname, char* port, char* dns_server, int query_type, uint64_t timeout,
+                   Client* client, dns_query_cb cb) {
     struct sockaddr_in dns_addr;
     int r;
 

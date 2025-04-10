@@ -53,7 +53,8 @@ typedef struct dns_request_t {
  * `-3`: UDP 수신 시작 실패,
  * `-4`: UDP 전송 실패
  */
-int send_dns_query(uv_loop_t* loop, char* hostname, char* port, char* dns_server, int query_type, uint64_t timeout, Client* client, dns_query_cb cb);
+int send_dns_query(uv_loop_t* loop, char* hostname, char* port, char* dns_server, int query_type, uint64_t timeout,
+                   Client* client, dns_query_cb cb);
 
 /** 기본 DNS 서버로 요청합니다\n
  * `Client` 구조체의 `host`, `port` 필드 값이 초기화 되어야 합니다

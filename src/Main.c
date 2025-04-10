@@ -7,14 +7,12 @@
 #include "Utills.h"
 
 // 실행 인자 부분
-extern DnsOptions SERVER_DNS;
-extern int SERVER_PORT;
-extern int SERVER_TIMEOUT;
-extern struct option run_args[];
+extern ServerConfig SERVER_CONFIG;
 
 /** 서버 구동체 */
 uv_loop_t *loop;
 
+extern struct option run_args[];
 extern int dns_timeout;
 extern int client_count;
 
@@ -31,12 +29,12 @@ void parse_dns(char *original) {
 
     char *colon = strchr(original, ',');
     if (colon == NULL) {
-        SERVER_DNS.dns_1 = strdup(original);
+        SERVER_CONFIG.dns.dns_1 = strdup(original);
     } else {
         *colon = '\0';
         strchr(colon + 1, ',') ? *strchr(colon + 1, ',') = '\0' : 0;
-        SERVER_DNS.dns_1 = strdup(original);
-        SERVER_DNS.dns_2 = strdup(colon + 1);
+        SERVER_CONFIG.dns.dns_1 = strdup(original);
+        SERVER_CONFIG.dns.dns_2 = strdup(colon + 1);
     }
 }
 
@@ -68,19 +66,24 @@ void on_dns(dns_response_t *dns) {
         return;
     } else {
         // 실행 인자 dns 주소 인경우
-        if (SERVER_DNS.dns_1 != NULL) {
+        if (SERVER_CONFIG.dns.dns_1 != NULL) {
             if (res.status == -1) {
-                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, DNS 주소: %s, 타임아웃", res.hostname, res.dns_address);
+                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, DNS 주소: %s, 타임아웃", res.hostname,
+                           res.dns_address);
             } else if (res.status == -2) {
-                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, DNS 주소: %s, 해당 호스트를 찾을 수 없음", res.hostname, res.dns_address);
+                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, DNS 주소: %s, 해당 호스트를 찾을 수 없음",
+                           res.hostname, res.dns_address);
             } else {
-                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, DNS 주소: %s, 알 수 없는 오류", res.hostname, res.dns_address);
+                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 요청 실패, DNS 주소: %s, 알 수 없는 오류",
+                           res.hostname, res.dns_address);
             }
 
             // 보조 DNS 주소로 다시 시도
-            if (res.dns_address == SERVER_DNS.dns_1 && SERVER_DNS.dns_2 != NULL) {
-                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 주소 %s 로 재시도", res.hostname, SERVER_DNS.dns_2);
-                int status = send_dns_query(loop, res.hostname, res.port, SERVER_DNS.dns_2, 1, res.timeout, client, on_dns);
+            if (res.dns_address == SERVER_CONFIG.dns.dns_1 && SERVER_CONFIG.dns.dns_2 != NULL) {
+                put_ip_log(LOG_WARNING, client->ClientIP, "%s DNS 주소 %s 로 재시도", res.hostname,
+                           SERVER_CONFIG.dns.dns_2);
+                int status = send_dns_query(loop, res.hostname, res.port, SERVER_CONFIG.dns.dns_2, 1, res.timeout,
+                                            client, on_dns);
                 if (status == 1) {
                     return;
                 }
@@ -88,7 +91,8 @@ void on_dns(dns_response_t *dns) {
         }
     }
 
-    put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 서버에서 도메인을 찾을 수 없음, Code: %d", res.hostname, res.status);
+    put_ip_log(LOG_ERROR, client->ClientIP, "%s DNS 서버에서 도메인을 찾을 수 없음, Code: %d", res.hostname,
+               res.status);
     uv_close((uv_handle_t *)&client->proxyClient, close_cb);
     unref_client(client);
 }
@@ -97,7 +101,7 @@ void on_dns(dns_response_t *dns) {
 void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     Client *client = (Client *)stream->data;
 
-    if (SERVER_TIMEOUT != 0) {
+    if (SERVER_CONFIG.timeOut != 0) {
         uv_timer_again(&client->timeout_timer);
     }
 
@@ -105,7 +109,9 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         if (nread == UV_EOF) {
             put_ip_log(LOG_INFO, client->ClientIP, "클라이언트 연결종료, Target: %s", client->host);
         } else {
-            put_ip_log(LOG_WARNING, client->ClientIP, "클라이언트 비정상 연결종료: 클라이언트 데이터 읽기 오류, Code: %s, Target: %s", uv_err_name(nread), client->host);
+            put_ip_log(LOG_WARNING, client->ClientIP,
+                       "클라이언트 비정상 연결종료: 클라이언트 데이터 읽기 오류, Code: %s, Target: %s",
+                       uv_err_name(nread), client->host);
         }
 
         // nreadr가 0인 상태에서도 alloc_buffer는 기본적으로 64KB 수준의 버퍼를 할당하기 때문에 free 안하면 누수 발생
@@ -181,12 +187,13 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         ref_client(client);
         if (!is_ip(addr.url)) {
             // 기본 DNS 서버 사용
-            if (SERVER_DNS.dns_1 == NULL) {
+            if (SERVER_CONFIG.dns.dns_1 == NULL) {
                 status = send_default_dns(loop, addr.url, addr.port, client, on_dns);
             }
             // 실행 인자 DNS 서버 사용
             else {
-                status = send_dns_query(loop, addr.url, addr.port, SERVER_DNS.dns_1, 1, dns_timeout, client, on_dns);
+                status =
+                    send_dns_query(loop, addr.url, addr.port, SERVER_CONFIG.dns.dns_1, 1, dns_timeout, client, on_dns);
             }
 
             if (status != 1) {
@@ -197,7 +204,8 @@ void read_data(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
         } else {
             int state = ConnectTargetServer(addr.url, atoi(addr.port), client);
             if (state) {
-                put_ip_log(LOG_ERROR, client->ClientIP, "%s 서버에 연결 실패, Code: %s", client->host, uv_strerror(state));
+                put_ip_log(LOG_ERROR, client->ClientIP, "%s 서버에 연결 실패, Code: %s", client->host,
+                           uv_strerror(state));
                 unref_client(client);
             } else {
                 client->state = 1;
@@ -246,10 +254,10 @@ void on_new_connection(uv_stream_t *server, int status) {
         // targetClient.data는 ConnectTargetServer에서 할당
         client_data->proxyClient.data = client_data;
 
-        if (SERVER_TIMEOUT != 0) {
+        if (SERVER_CONFIG.timeOut != 0) {
             client_data->timeout_timer.data = client_data;
             uv_timer_init(loop, &client_data->timeout_timer);
-            uv_timer_start(&client_data->timeout_timer, on_timeout, SERVER_TIMEOUT, 0);
+            uv_timer_start(&client_data->timeout_timer, on_timeout, SERVER_CONFIG.timeOut, 0);
             // 타임아웃 타이머 작동 ref
             ref_client(client_data);
         }
@@ -288,13 +296,13 @@ int main(int argc, char *argv[]) {
             port[len - 1] = '\0';
 
             if (strlen(port) == 0) {
-                SERVER_PORT = 1503;
+                SERVER_CONFIG.port = 1503;
             } else {
-                SERVER_PORT = atoi(port);
+                SERVER_CONFIG.port = atoi(port);
             }
 
-            if (SERVER_PORT < 1 || SERVER_PORT > 65535) {
-                put_log(LOG_ERROR, "잘못된 포트번호\n");
+            if (SERVER_CONFIG.port < 1 || SERVER_CONFIG.port > 65535) {
+                printf("%s잘못된 포트번호%s\n\n", COLOR_RED, COLOR_RESET);
                 continue;
             }
 
@@ -314,8 +322,9 @@ int main(int argc, char *argv[]) {
 
             if (strlen(dns) > 0) {
                 parse_dns(dns);
-                if (!is_ip(SERVER_DNS.dns_1) || (SERVER_DNS.dns_2 != NULL && !is_ip(SERVER_DNS.dns_2))) {
-                    put_log(LOG_ERROR, "잘못된 DNS 주소\n");
+                if (!is_ip(SERVER_CONFIG.dns.dns_1) ||
+                    (SERVER_CONFIG.dns.dns_2 != NULL && !is_ip(SERVER_CONFIG.dns.dns_2))) {
+                    printf("%s잘못된 DNS 주소%s\n\n", COLOR_RED, COLOR_RESET);
                     continue;
                 }
             }
@@ -328,15 +337,19 @@ int main(int argc, char *argv[]) {
     } else {
         int option_index = 0;
         int opt;
-        while ((opt = getopt_long(argc, argv, "p:ht:", run_args, &option_index)) != -1) {
+        while ((opt = getopt_long(argc, argv, "p:ht:l:", run_args, &option_index)) != -1) {
             switch (opt) {
                 case 0:
                     if (strcmp(run_args[option_index].name, "dns") == 0) {
                         parse_dns(optarg);
-                        if (!is_ip(SERVER_DNS.dns_1) || (SERVER_DNS.dns_2 != NULL && !is_ip(SERVER_DNS.dns_2))) {
+                        if (!is_ip(SERVER_CONFIG.dns.dns_1) ||
+                            (SERVER_CONFIG.dns.dns_2 != NULL && !is_ip(SERVER_CONFIG.dns.dns_2))) {
                             put_log(LOG_ERROR, "잘못된 DNS 주소");
                             return 1;
                         }
+                    }
+                    if (strcmp(run_args[option_index].name, "nolog") == 0) {
+                        SERVER_CONFIG.noLog = 1;
                     }
                     break;
                 case 'p':
@@ -344,14 +357,17 @@ int main(int argc, char *argv[]) {
                         put_log(LOG_ERROR, "잘못된 포트번호\n");
                         return 1;
                     }
-                    SERVER_PORT = atoi(optarg);
+                    SERVER_CONFIG.port = atoi(optarg);
                     break;
                 case 't':
                     if (atoi(optarg) < 0) {
                         put_log(LOG_ERROR, "잘못된 타임아웃 값\n");
                         return 1;
                     }
-                    SERVER_TIMEOUT = atoi(optarg) * 1000;
+                    SERVER_CONFIG.timeOut = atoi(optarg) * 1000;
+                    break;
+                case 'l':
+                    SERVER_CONFIG.logFile = strdup(optarg);
                     break;
                 case 'h':
                     print_help();
@@ -370,24 +386,25 @@ int main(int argc, char *argv[]) {
     init_PorxyClient(loop);
 
     struct sockaddr_in addr;
-    uv_ip4_addr("0.0.0.0", SERVER_PORT, &addr);
+    uv_ip4_addr("0.0.0.0", SERVER_CONFIG.port, &addr);
 
     uv_tcp_bind(&server, (const struct sockaddr *)&addr, 0);
     int r = uv_listen((uv_stream_t *)&server, DEFAULT_BACKLOG, on_new_connection);
     if (r) {
-        put_log(LOG_ERROR, "%d 포트가 사용중인거 같음", SERVER_PORT);
+        put_log(LOG_ERROR_FORCE, "%d 포트가 사용중인거 같음", SERVER_CONFIG.port);
         return 1;
     }
 
-    put_log(LOG_INFO, "프록시 서버가 정상적으로 열림");
-    if (SERVER_DNS.dns_1 == NULL) {
-        put_log(LOG_INFO, "DNS: 기본 DNS 서버");
+    put_log(LOG_INFO_FORCE, "프록시 서버가 정상적으로 열림");
+    if (SERVER_CONFIG.dns.dns_1 == NULL) {
+        put_log(LOG_INFO_FORCE, "DNS: 기본 DNS 서버");
     } else {
-        put_log(LOG_INFO, "DNS: %s,%s", SERVER_DNS.dns_1, SERVER_DNS.dns_2 ? SERVER_DNS.dns_2 : "");
+        put_log(LOG_INFO_FORCE, "DNS: %s,%s", SERVER_CONFIG.dns.dns_1,
+                SERVER_CONFIG.dns.dns_2 ? SERVER_CONFIG.dns.dns_2 : "");
     }
-    put_log(LOG_INFO, "포트: %d", SERVER_PORT);
-    put_log(LOG_INFO, "타임아웃 시간: %d초", SERVER_TIMEOUT / 1000);
-    put_log(LOG_INFO, "");
+    put_log(LOG_INFO_FORCE, "포트: %d", SERVER_CONFIG.port);
+    put_log(LOG_INFO_FORCE, "타임아웃 시간: %d초", SERVER_CONFIG.timeOut / 1000);
+    put_log(LOG_INFO_FORCE, "");
 
     return uv_run(loop, UV_RUN_DEFAULT);
 }
