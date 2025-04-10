@@ -181,7 +181,11 @@ Wi-Fi 설정 -> 현재 접속된 Wi-Fi에 대한 설정 -> **프록시를 사용
 
 `CXX_COMPILER`: C++ 컴파일러 지정
 
-`INSTALL_PREFIX_WINDOWS`: cmake --install 명령에 실행파일 설치 위치
+`INSTALL_PREFIX_WINDOWS`: (윈도우) cmake --install 명령에 실행파일 설치 위치
+
+-   지정된경로/bin 에 실행파일이 설치됨
+
+`INSTALL_PREFIX_LINUX`: (리눅스) cmake --install 명령에 실행파일 설치 위치
 
 -   지정된경로/bin 에 실행파일이 설치됨
 
