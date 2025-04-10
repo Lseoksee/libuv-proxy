@@ -354,26 +354,32 @@ int main(int argc, char *argv[]) {
                     break;
                 case 'p':
                     if (atoi(optarg) < 1 || atoi(optarg) > 65535) {
-                        put_log(LOG_ERROR, "잘못된 포트번호\n");
+                        put_log(LOG_ERROR, "잘못된 포트번호");
                         return 1;
                     }
                     SERVER_CONFIG.port = atoi(optarg);
                     break;
                 case 't':
                     if (atoi(optarg) < 0) {
-                        put_log(LOG_ERROR, "잘못된 타임아웃 값\n");
+                        put_log(LOG_ERROR, "잘못된 타임아웃 값");
                         return 1;
                     }
                     SERVER_CONFIG.timeOut = atoi(optarg) * 1000;
                     break;
                 case 'l':
+                    FILE *fp = fopen(optarg, "w");
+                    if (fp == NULL) {
+                        put_log(LOG_ERROR, "로그 파일을 저장할 수 있는 위치가 아님");
+                        return 1;
+                    }
+                    fclose(fp);
                     SERVER_CONFIG.logFile = strdup(optarg);
                     break;
                 case 'h':
                     print_help();
                     return 1;
                 default:
-                    put_log(LOG_INFO, "'%s --help' 로 설명을 확인해 보세요.\n", argv[0]);
+                    put_log(LOG_INFO, "'%s --help' 로 설명을 확인해 보세요.", argv[0]);
                     return 0;
             }
         }
