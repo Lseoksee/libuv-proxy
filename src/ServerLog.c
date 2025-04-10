@@ -154,13 +154,7 @@ void __save_log_local(const char *__restrict__ _Format, ...) {
     vsnprintf(buf, len + 1, _Format, args);
     va_end(args);
 
-    FILE *fp = fopen(SERVER_CONFIG.logFile, "a+");
-    if (fp == NULL) {
-        return;
-    }
-
-    fputs(buf, fp);
-    fclose(fp);
+    fputs(buf, SERVER_CONFIG.logFile);
 }
 
 int __is_log_true(LOG_TYPE log_type) {

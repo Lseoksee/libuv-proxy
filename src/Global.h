@@ -58,7 +58,7 @@ typedef struct ServerConfig {
     int timeOut;
     /**  */
     int noLog;
-    char *logFile;
+    FILE *logFile;
 } ServerConfig;
 
 /** 연결 요청 대기 큐 최대길이 (리눅스 기본값 128개) */

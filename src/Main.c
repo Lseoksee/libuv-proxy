@@ -367,13 +367,11 @@ int main(int argc, char *argv[]) {
                     SERVER_CONFIG.timeOut = atoi(optarg) * 1000;
                     break;
                 case 'l':
-                    FILE *fp = fopen(optarg, "w");
-                    if (fp == NULL) {
+                    SERVER_CONFIG.logFile = fopen(optarg, "w+");
+                    if (SERVER_CONFIG.logFile == NULL) {
                         put_log(LOG_ERROR, "로그 파일을 저장할 수 있는 위치가 아님");
                         return 1;
                     }
-                    fclose(fp);
-                    SERVER_CONFIG.logFile = strdup(optarg);
                     break;
                 case 'h':
                     print_help();
