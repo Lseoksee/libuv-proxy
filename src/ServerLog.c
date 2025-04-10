@@ -145,16 +145,9 @@ void __save_log_local(const char *__restrict__ _Format, ...) {
     // 가변 인자 파싱
     va_list args;
     va_start(args, _Format);
-    int len = vsnprintf(NULL, 0, _Format, args);
+    vfprintf(SERVER_CONFIG.logFile, _Format, args);
     va_end(args);
-
-    char buf[len + 1];
-
-    va_start(args, _Format);
-    vsnprintf(buf, len + 1, _Format, args);
-    va_end(args);
-
-    fputs(buf, SERVER_CONFIG.logFile);
+    fflush(SERVER_CONFIG.logFile);
 }
 
 int __is_log_true(LOG_TYPE log_type) {
