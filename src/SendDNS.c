@@ -15,6 +15,7 @@ int send_default_dns(uv_loop_t* loop, char* hostname, const char* port, Client* 
 
     int status = uv_getaddrinfo(loop, &res, NULL, hostname, port, &hints);
     if (status != 0) {
+        uv_freeaddrinfo(res.addrinfo);
         return -1;
     }
 

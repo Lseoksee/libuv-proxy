@@ -90,7 +90,7 @@ void put_time_log(LOG_TYPE log_type, const char *__restrict__ _Format, ...) {
         }
 
         if (SERVER_CONFIG.logFile != NULL) {
-            __save_log_local("%s %s: %s\n", time_str, buf);
+            __save_log_local("%s %s\n", time_str, buf);
         }
     }
 }
